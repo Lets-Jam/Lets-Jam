@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Motion Band</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1><span class="title-accent">Motion Band</span> 합주 웹</h1>
+      <p class="small">
+        보컬은 방을 만들고 오디오를 시작합니다. 참가자는 방 코드로 입장한 뒤 버튼 또는 핸드폰 흔들기로 악기를 활성화합니다.
+      </p>
+      <div id="roomCode">방 코드: 없음</div>
+      <div id="roleText">현재 역할: 미선택</div>
+      <div class="badge-list" id="stateBadges"></div>
+    </div>
+
+    <div class="card">
+      <h2>재생 현황</h2>
+      <div id="playbackTime">00:00 / 00:00</div>
+      <div class="progress">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="part-status-list" id="partStatusList"></div>
+    </div>
+
+    <div class="card">
+      <h2>입장</h2>
+      <button id="createRoomBtn">방 만들기 (보컬)</button>
+
+      <div class="row">
+        <input id="roomInput" placeholder="방 코드 입력" />
+        <select id="instrumentSelect">
+          <option value="piano">피아노</option>
+          <option value="guitar">기타</option>
+          <option value="drums">드럼</option>
+        </select>
+      </div>
+
+      <button id="joinRoomBtn" class="secondary">방 참가 (연주자)</button>
+    </div>
+
+    <div class="card hidden" id="hostPanel">
+      <h2>보컬 패널</h2>
+      <button id="initAudioBtn" class="secondary">오디오 파일 미리 로드</button>
+      <button id="startSongBtn" class="success">곡 시작</button>
+      <p class="small">
+        public/audio 폴더에 vocal.mp3, piano.mp3, guitar.mp3, drums.mp3 파일을 넣어두셔야 합니다.
+      </p>
+    </div>
+
+    <div class="card hidden" id="participantPanel">
+      <h2>연주자 패널</h2>
+      <button id="manualPlayBtn" class="warning">수동으로 연주 요청 보내기</button>
+      <button id="motionEnableBtn" class="success">핸드폰 모션 감지 활성화</button>
+      <p class="small">
+        모바일 브라우저에서 먼저 버튼을 눌러 모션 권한을 허용해야 흔들기 감지가 됩니다.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>로그</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
