@@ -196,7 +196,12 @@ io.on("connection", (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || "0.0.0.0";
+
+server.listen(PORT, HOST, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  if (HOST === "0.0.0.0") {
+    console.log(`Server is exposed on your local network at http://<your-ip>:${PORT}`);
+  }
 });
