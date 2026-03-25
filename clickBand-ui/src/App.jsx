@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
-const SOCKET_URL =
-  import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
+const defaultSocketUrl =
+  typeof window !== "undefined"
+    ? `${window.location.protocol}//${window.location.hostname}:3000`
+    : "http://localhost:3000";
+
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || defaultSocketUrl;
 
 const instrumentLabels = {
   vocal: "보컬",
