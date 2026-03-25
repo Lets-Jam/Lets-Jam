@@ -4,6 +4,27 @@ import { io } from "socket.io-client";
 const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
 
+// API 명세서(document/api-spec.md)를 기반으로 작성된 소켓 이벤트 상수
+const SOCKET_EVENTS = {
+  // Client -> Server
+  CREATE_ROOM: "create_room",
+  JOIN_ROOM: "join_room",
+  START_SONG: "start_song",
+  ACTIVATE_INSTRUMENT: "activate_instrument",
+  // Server -> Client
+  ROOM_CREATED: "room_created",
+  JOINED_ROOM: "joined_room",
+  JOIN_ERROR: "join_error",
+  SONG_STARTED: "song_started",
+  INSTRUMENT_ACTIVATED: "instrument_activated",
+  INSTRUMENT_DEACTIVATED: "instrument_deactivated",
+  USER_JOINED: "user_joined",
+  USER_LEFT: "user_left",
+  ROOM_STATE: "room_state",
+  PLAYBACK_SYNC: "playback_sync",
+  HOST_LEFT: "host_left",
+};
+
 const instrumentLabels = {
   vocal: "보컬",
   piano: "피아노",
@@ -243,6 +264,7 @@ export default function App() {
     socketRef.current = socket;
 
     socket.on("room_created", ({ roomId: newRoomId, role: newRole, activeInstruments, activatedAt }) => {
+    socket.on(SOCKET_EVENTS.ROOM_CREATED, ({ roomId: newRoomId, role: newRole, activeInstruments, activatedAt }) => {
       setRoomId(newRoomId);
       setRole(newRole);
       setMyInstrument("vocal");
@@ -253,6 +275,7 @@ export default function App() {
 
     socket.on(
       "joined_room",
+      SOCKET_EVENTS.JOINED_ROOM,
       ({
         roomId: joinedRoomId,
         role: joinedRole,
@@ -276,8 +299,10 @@ export default function App() {
     );
 
     socket.on("join_error", (message) => alert(message));
+    socket.on(SOCKET_EVENTS.JOIN_ERROR, (message) => alert(message));
 
     socket.on("song_started", ({ activeInstruments, activatedAt, startedAt }) => {
+    socket.on(SOCKET_EVENTS.SONG_STARTED, ({ activeInstruments, activatedAt, startedAt }) => {
       serverDriftMsRef.current = 0;
       setActiveInstruments(activeInstruments || initialActive);
       setActivatedAt(activatedAt || initialActivatedAt);
@@ -286,6 +311,7 @@ export default function App() {
     });
 
     socket.on("instrument_activated", ({ instrument, activeInstruments, activatedAt }) => {
+    socket.on(SOCKET_EVENTS.INSTRUMENT_ACTIVATED, ({ instrument, activeInstruments, activatedAt }) => {
       setActiveInstruments(activeInstruments || initialActive);
       setActivatedAt(activatedAt || initialActivatedAt);
       if (roleRef.current === "host") activateLocalInstrument(instrument);
@@ -293,6 +319,7 @@ export default function App() {
     });
 
     socket.on("instrument_deactivated", ({ instrument, activeInstruments, activatedAt }) => {
+    socket.on(SOCKET_EVENTS.INSTRUMENT_DEACTIVATED, ({ instrument, activeInstruments, activatedAt }) => {
       setActiveInstruments(activeInstruments || initialActive);
       setActivatedAt(activatedAt || initialActivatedAt);
       if (roleRef.current === "host") deactivateLocalInstrument(instrument);
@@ -301,8 +328,11 @@ export default function App() {
 
     socket.on("user_joined", ({ instrument }) => addLog(`${instrument} 참가자가 입장했습니다.`));
     socket.on("user_left", ({ instrument }) => addLog(`${instrument} 참가자가 퇴장했습니다.`));
+    socket.on(SOCKET_EVENTS.USER_JOINED, ({ instrument }) => addLog(`${instrument} 참가자가 입장했습니다.`));
+    socket.on(SOCKET_EVENTS.USER_LEFT, ({ instrument }) => addLog(`${instrument} 참가자가 퇴장했습니다.`));
 
     socket.on("room_state", (room) => {
+    socket.on(SOCKET_EVENTS.ROOM_STATE, (room) => {
       if (!room?.activeInstruments) return;
       setActiveInstruments(room.activeInstruments);
       setActivatedAt(room.activatedAt || initialActivatedAt);
@@ -313,10 +343,12 @@ export default function App() {
     });
 
     socket.on("playback_sync", ({ startedAt, elapsedSec, serverNow }) => {
+    socket.on(SOCKET_EVENTS.PLAYBACK_SYNC, ({ startedAt, elapsedSec, serverNow }) => {
       syncPlaybackState({ startedAt, elapsedSec, serverNow });
     });
 
     socket.on("host_left", () => {
+    socket.on(SOCKET_EVENTS.HOST_LEFT, () => {
       alert("보컬 호스트가 방을 종료했습니다.");
       window.location.reload();
     });
@@ -343,6 +375,7 @@ export default function App() {
       lastTriggerAtRef.current = now;
       instrumentAlreadyTriggeredRef.current = true;
       socketRef.current?.emit("activate_instrument", { roomId, instrument: myInstrument });
+      socketRef.current?.emit(SOCKET_EVENTS.ACTIVATE_INSTRUMENT, { roomId, instrument: myInstrument });
       addLog(`모션 감지 성공 -> ${myInstrument} 활성화 요청`);
     };
 
@@ -351,6 +384,7 @@ export default function App() {
   }, [isParticipant, motionEnabled, roomId, myInstrument]);
 
   const onCreateRoom = () => socketRef.current?.emit("create_room");
+  const onCreateRoom = () => socketRef.current?.emit(SOCKET_EVENTS.CREATE_ROOM);
 
   const onJoinRoom = () => {
     const normalized = roomInput.trim().toUpperCase();
@@ -360,6 +394,7 @@ export default function App() {
     }
     setMyInstrument(selectedInstrument);
     socketRef.current?.emit("join_room", {
+    socketRef.current?.emit(SOCKET_EVENTS.JOIN_ROOM, {
       roomId: normalized,
       instrument: selectedInstrument,
     });
@@ -372,6 +407,7 @@ export default function App() {
       setActivatedAt(initialActivatedAt);
       setActiveInstruments({ vocal: true, piano: false, guitar: false, drums: false });
       socketRef.current?.emit("start_song", { roomId });
+      socketRef.current?.emit(SOCKET_EVENTS.START_SONG, { roomId });
     } catch (error) {
       alert(error.message);
     }
@@ -389,6 +425,7 @@ export default function App() {
     if (!isParticipant) return alert("참가자만 사용할 수 있습니다.");
     if (!roomId || !myInstrument) return alert("먼저 방에 참가해주세요.");
     socketRef.current?.emit("activate_instrument", { roomId, instrument: myInstrument });
+    socketRef.current?.emit(SOCKET_EVENTS.ACTIVATE_INSTRUMENT, { roomId, instrument: myInstrument });
     addLog(`수동 연주 요청 전송 -> ${myInstrument}`);
   };
 
