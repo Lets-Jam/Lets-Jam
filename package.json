@@ -1,15 +1,19 @@
 {
   "name": "band-web",
+  "private": true,
   "version": "1.0.0",
   "main": "clickBand/server.js",
+  "workspaces": [
+    "clickBand",
+    "clickBand-ui"
+  ],
   "scripts": {
+    "dev": "npm run start",
     "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
-    "start:backend": "node clickBand/server.js",
-    "start:frontend": "npm run dev --prefix clickBand-ui"
+    "start:backend": "npm run start --workspace clickBand",
+    "start:frontend": "npm run dev --workspace clickBand-ui"
   },
-  "dependencies": {
-    "concurrently": "^9.2.1",
-    "express": "^4.18.2",
-    "socket.io": "^4.7.2"
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
