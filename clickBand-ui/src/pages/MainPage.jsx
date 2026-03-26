@@ -1,20 +1,18 @@
 import React, { useState } from "react";
 
-const instruments = [
-  { value: "piano", label: "피아노" },
-  { value: "guitar", label: "기타" },
-  { value: "drums", label: "드럼" },
-];
-
 const MainPage = ({ onGoToDevPage, session }) => {
+  const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [isJoinModalOpen, setJoinModalOpen] = useState(false);
   const [jamCode, setJamCode] = useState("");
-  const [selectedInstrument, setSelectedInstrument] = useState("piano");
+
+  const openCreateModal = () => {
+    setCreateModalOpen(true);
+  };
+  const closeCreateModal = () => setCreateModalOpen(false);
 
   const openJoinModal = () => {
     setJoinModalOpen(true);
     setJamCode("");
-    setSelectedInstrument("piano");
   };
   const closeJoinModal = () => setJoinModalOpen(false);
 
@@ -28,7 +26,15 @@ const MainPage = ({ onGoToDevPage, session }) => {
       return alert("6자리 코드를 정확히 입력해주세요.");
     }
 
-    session.joinRoom({ roomCode: jamCode, instrument: selectedInstrument });
+    session.joinRoom({ roomCode: jamCode });
+  };
+
+  const handleCreateSubmit = () => {
+    if (!session.selectedSongId) {
+      return alert("생성할 곡을 선택해주세요.");
+    }
+
+    session.createRoom(session.selectedSongId);
   };
 
   const handleImageCapture = (e) => {
@@ -62,8 +68,12 @@ const MainPage = ({ onGoToDevPage, session }) => {
           </div>
 
           <div className="action-buttons">
-            <button className="cosmos-button" onClick={session.createRoom} disabled={session.isBusy || !session.connectionReady}>
-              {session.isBusy ? "연결 중..." : "생성하기"}
+            <button
+              className="cosmos-button"
+              onClick={openCreateModal}
+              disabled={session.isBusy || !session.connectionReady}
+            >
+              생성하기
             </button>
             <button className="cosmos-button" onClick={openJoinModal} disabled={session.isBusy || !session.connectionReady}>
               참여하기
@@ -89,9 +99,64 @@ const MainPage = ({ onGoToDevPage, session }) => {
         dev
       </button>
 
+      {isCreateModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-backdrop" onClick={closeCreateModal}></div>
+          <div className="modal-scroll-wrapper">
+            <div className="modal-content song-modal-content">
+              <h2 className="modal-title">Song Select</h2>
+
+              <div className="join-options-container">
+                {session.songsLoading ? (
+                  <p className="modal-helper-text">곡 목록을 불러오는 중입니다.</p>
+                ) : null}
+
+                {session.songsError ? (
+                  <div className="modal-message-block">
+                    <p className="modal-helper-text">{session.songsError}</p>
+                    <button type="button" className="jam-secondary-button" onClick={() => session.fetchSongs()}>
+                      다시 불러오기
+                    </button>
+                  </div>
+                ) : null}
+
+                {!session.songsLoading && !session.songsError ? (
+                  <div className="song-selector">
+                    {session.songs.map((song) => (
+                      <button
+                        key={song.id}
+                        type="button"
+                        className={`song-card ${session.selectedSongId === song.id ? "selected" : ""}`}
+                        onClick={() => session.setSelectedSongId(song.id)}
+                      >
+                        <span className="song-card-label">Song</span>
+                        <strong>{song.title}</strong>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button type="button" onClick={closeCreateModal} className="modal-close-button">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+              <button
+                type="button"
+                className={`modal-submit-button ${session.selectedSongId ? "show" : ""}`}
+                onClick={handleCreateSubmit}
+                disabled={session.isBusy || session.songsLoading || !session.selectedSongId}
+              >
+                {session.isBusy ? "생성 중" : "이 곡으로 방 만들기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isJoinModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-backdrop"></div>
+          <div className="modal-backdrop" onClick={closeJoinModal}></div>
           <div className="modal-scroll-wrapper">
             <div className="modal-content">
               <h2 className="modal-title">Jam Code</h2>
@@ -107,20 +172,6 @@ const MainPage = ({ onGoToDevPage, session }) => {
                     onChange={handleCodeChange}
                   />
                 </div>
-
-                <div className="instrument-selector">
-                  {instruments.map((instrument) => (
-                    <button
-                      key={instrument.value}
-                      type="button"
-                      className={`instrument-chip ${selectedInstrument === instrument.value ? "selected" : ""}`}
-                      onClick={() => setSelectedInstrument(instrument.value)}
-                    >
-                      {instrument.label}
-                    </button>
-                  ))}
-                </div>
-
                 <label className="join-option-button qr-scan-button" style={{ cursor: "pointer" }}>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>

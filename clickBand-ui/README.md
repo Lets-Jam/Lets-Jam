@@ -14,8 +14,9 @@ cp .env.example .env
 npm run dev
 ```
 
-- 기본 소켓 서버 주소: `http://localhost:3000`
-- 다른 주소를 쓰려면 `.env`에서 `VITE_SOCKET_URL` 변경
+- 기본 소켓 서버 주소: 현재 접속한 호스트의 `:3000`
+- 예: `http://192.168.0.10:5173`로 접속하면 기본 소켓 주소는 `http://192.168.0.10:3000`
+- 소켓 서버가 다른 호스트/도메인에 있으면 `.env`에서 `VITE_SOCKET_URL` 지정
 
 ## 3) Vercel 배포
 

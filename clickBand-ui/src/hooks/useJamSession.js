@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { resolveSocketUrl } from "../lib/socketUrl";
 
-const SOCKET_URL =
-  import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
-
+const SOCKET_URL = resolveSocketUrl();
 export const SOCKET_EVENTS = {
+  GET_SONGS: "get_songs",
+  SONGS_LIST: "songs_list",
   CREATE_ROOM: "create_room",
   JOIN_ROOM: "join_room",
   CHANGE_INSTRUMENT: "change_instrument",
@@ -29,13 +30,6 @@ export const instrumentLabels = {
   piano: "피아노",
   guitar: "기타",
   drums: "드럼",
-};
-
-const trackFiles = {
-  vocal: "/audio/vocal.mp3",
-  piano: "/audio/piano.mp3",
-  guitar: "/audio/guitar.mp3",
-  drums: "/audio/drums.mp3",
 };
 
 const initialActive = {
@@ -95,6 +89,16 @@ export function useJamSession() {
   const [isBusy, setIsBusy] = useState(false);
   const [connectionReady, setConnectionReady] = useState(false);
   const [isChangingInstrument, setIsChangingInstrument] = useState(false);
+  const [songs, setSongs] = useState([]);
+  const [songsLoading, setSongsLoading] = useState(false);
+  const [songsError, setSongsError] = useState("");
+  const [selectedSongId, setSelectedSongId] = useState("");
+  const [selectedSongTitle, setSelectedSongTitle] = useState("");
+  const [availableInstruments, setAvailableInstruments] = useState([]);
+  const selectedSong = useMemo(
+    () => songs.find((song) => song.id === selectedSongId) || null,
+    [songs, selectedSongId]
+  );
 
   const addLog = (message) => {
     const time = new Date().toLocaleTimeString();
@@ -139,6 +143,23 @@ export function useJamSession() {
     setPlayback({ current: 0, duration: 0 });
     setIsBusy(false);
     setIsChangingInstrument(false);
+    setSelectedSongTitle("");
+    setAvailableInstruments([]);
+  };
+
+  const getTrackFiles = () => {
+    if (!selectedSongId || !selectedSong) return {};
+
+    return selectedSong.tracks.reduce((acc, track) => {
+      acc[track] = `/audio/${selectedSongId}/${track}.mp3`;
+      return acc;
+    }, {});
+  };
+
+  const fetchSongs = async () => {
+    setSongsLoading(true);
+    setSongsError("");
+    socketRef.current?.emit(SOCKET_EVENTS.GET_SONGS);
   };
 
   const getCurrentPlaybackSeconds = () => {
@@ -171,7 +192,8 @@ export function useJamSession() {
     if (durationLoadedRef.current) return;
 
     try {
-      const duration = await new Promise((resolve, reject) => {
+        const duration = await new Promise((resolve, reject) => {
+        const trackFiles = getTrackFiles();
         const audio = new Audio(trackFiles.vocal);
         audio.preload = "metadata";
         audio.onloadedmetadata = () => resolve(audio.duration || 0);
@@ -201,6 +223,11 @@ export function useJamSession() {
   };
 
   const initAudio = async () => {
+    const trackFiles = getTrackFiles();
+    if (!trackFiles.vocal) {
+      throw new Error("먼저 곡을 선택해주세요.");
+    }
+
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
     } else if (audioContextRef.current.state === "suspended") {
@@ -208,6 +235,7 @@ export function useJamSession() {
     }
 
     for (const [instrument, url] of Object.entries(trackFiles)) {
+      if (!url) continue;
       if (audioStateRef.current.buffers[instrument]) continue;
       const response = await fetch(url);
       if (!response.ok) throw new Error(`${instrument} 파일 로드 실패: ${url}`);
@@ -247,10 +275,9 @@ export function useJamSession() {
       return;
     }
 
-    createTrackSource("vocal", 1);
-    createTrackSource("piano", 0);
-    createTrackSource("guitar", 0);
-    createTrackSource("drums", 0);
+    Object.keys(audioStateRef.current.buffers).forEach((instrument) => {
+      createTrackSource(instrument, instrument === "vocal" ? 1 : 0);
+    });
 
     songStartAtRef.current = audioContextRef.current.currentTime + 0.15;
     Object.values(audioStateRef.current.sources).forEach((source) => {
@@ -291,6 +318,7 @@ export function useJamSession() {
     socket.on("connect", () => {
       setConnectionReady(true);
       addLog("서버에 연결되었습니다.");
+      socket.emit(SOCKET_EVENTS.GET_SONGS);
     });
 
     socket.on("disconnect", () => {
@@ -298,13 +326,35 @@ export function useJamSession() {
       addLog("서버 연결이 종료되었습니다.");
     });
 
+    socket.on(SOCKET_EVENTS.SONGS_LIST, ({ songs }) => {
+      const nextSongs = Array.isArray(songs) ? songs : [];
+      setSongs(nextSongs);
+      setSongsLoading(false);
+      setSongsError(nextSongs.length === 0 ? "선택할 수 있는 곡이 없습니다." : "");
+
+      if (!selectedSongId && nextSongs[0]?.id) {
+        setSelectedSongId(nextSongs[0].id);
+      }
+    });
+
     socket.on(
       SOCKET_EVENTS.ROOM_CREATED,
-      ({ roomId: newRoomId, role: newRole, activeInstruments, activatedAt }) => {
+      ({
+        roomId: newRoomId,
+        role: newRole,
+        songId,
+        songTitle,
+        availableInstruments,
+        activeInstruments,
+        activatedAt,
+      }) => {
         setIsBusy(false);
         setRoomId(newRoomId);
         setRole(newRole);
         setMyInstrument("vocal");
+        setSelectedSongId(songId || "");
+        setSelectedSongTitle(songTitle || "");
+        setAvailableInstruments(availableInstruments || []);
         setActiveInstruments(activeInstruments || initialActive);
         setActivatedAt(activatedAt || initialActivatedAt);
         addLog(`방 생성 완료: ${newRoomId}`);
@@ -317,6 +367,9 @@ export function useJamSession() {
         roomId: joinedRoomId,
         role: joinedRole,
         instrument,
+        songId,
+        songTitle,
+        availableInstruments,
         activeInstruments,
         activatedAt,
         started,
@@ -326,13 +379,16 @@ export function useJamSession() {
         setRoomId(joinedRoomId);
         setRole(joinedRole);
         setMyInstrument(instrument);
+        setSelectedSongId(songId || "");
+        setSelectedSongTitle(songTitle || "");
+        setAvailableInstruments(availableInstruments || []);
         setActiveInstruments(activeInstruments || initialActive);
         setActivatedAt(activatedAt || initialActivatedAt);
         if (started) {
           syncPlaybackState({ startedAt: startedAt || Date.now() });
           addLog("이미 시작된 방입니다. 현재 상태만 확인 가능합니다.");
         }
-        addLog(`방 참가 완료: ${joinedRoomId}, 악기: ${instrumentLabels[instrument] || instrument}`);
+        addLog(`방 참가 완료: ${joinedRoomId}${instrument ? `, 악기: ${instrumentLabels[instrument] || instrument}` : ""}`);
       }
     );
 
@@ -391,15 +447,18 @@ export function useJamSession() {
     );
 
     socket.on(SOCKET_EVENTS.USER_JOINED, ({ instrument }) => {
-      addLog(`${instrumentLabels[instrument] || instrument} 참가자가 입장했습니다.`);
+      addLog(instrument ? `${instrumentLabels[instrument] || instrument} 참가자가 입장했습니다.` : "새 참가자가 입장했습니다.");
     });
 
     socket.on(SOCKET_EVENTS.USER_LEFT, ({ instrument }) => {
-      addLog(`${instrumentLabels[instrument] || instrument} 참가자가 퇴장했습니다.`);
+      addLog(instrument ? `${instrumentLabels[instrument] || instrument} 참가자가 퇴장했습니다.` : "참가자가 퇴장했습니다.");
     });
 
     socket.on(SOCKET_EVENTS.ROOM_STATE, (room) => {
       if (!room?.activeInstruments) return;
+      setSelectedSongId(room.songId || "");
+      setSelectedSongTitle(room.songTitle || "");
+      setAvailableInstruments(room.availableInstruments || []);
       setActiveInstruments(room.activeInstruments);
       setActivatedAt(room.activatedAt || initialActivatedAt);
 
@@ -433,7 +492,6 @@ export function useJamSession() {
   }, [myInstrument]);
 
   useEffect(() => {
-    ensureDurationLoaded();
     connectSocket();
 
     return () => {
@@ -468,36 +526,39 @@ export function useJamSession() {
     return () => window.removeEventListener("devicemotion", handleMotion);
   }, [motionEnabled, role, roomId, myInstrument]);
 
-  const createRoom = () => {
+  const createRoom = (songId) => {
     if (!connectionReady) {
       alert("서버 연결이 아직 준비되지 않았습니다.");
       return;
     }
+    if (!songId) {
+      alert("생성할 곡을 선택해주세요.");
+      return;
+    }
 
     setIsBusy(true);
-    socketRef.current?.emit(SOCKET_EVENTS.CREATE_ROOM);
+    setSelectedSongId(songId);
+    setSelectedSongTitle(songs.find((song) => song.id === songId)?.title || "");
+    setAvailableInstruments(
+      songs.find((song) => song.id === songId)?.availableInstruments || []
+    );
+    socketRef.current?.emit(SOCKET_EVENTS.CREATE_ROOM, { songId });
   };
 
-  const joinRoom = ({ roomCode, instrument }) => {
+  const joinRoom = ({ roomCode }) => {
     const normalized = roomCode.trim().toUpperCase();
     if (!normalized) {
       alert("방 코드를 입력해주세요.");
       return;
     }
-    if (!instrument || instrument === "vocal") {
-      alert("참여 악기를 선택해주세요.");
-      return;
-    }
     if (!connectionReady) {
       alert("서버 연결이 아직 준비되지 않았습니다.");
       return;
     }
 
     setIsBusy(true);
-    setMyInstrument(instrument);
     socketRef.current?.emit(SOCKET_EVENTS.JOIN_ROOM, {
       roomId: normalized,
-      instrument,
     });
   };
 
@@ -507,8 +568,8 @@ export function useJamSession() {
     try {
       await initAudio();
       startAllTracks();
-      setActivatedAt(initialActivatedAt);
-      setActiveInstruments({ vocal: true, piano: false, guitar: false, drums: false });
+      setActivatedAt((prev) => ({ ...prev, vocal: 0 }));
+      setActiveInstruments((prev) => ({ ...prev, vocal: true }));
       socketRef.current?.emit(SOCKET_EVENTS.START_SONG, { roomId });
     } catch (error) {
       alert(error.message);
@@ -587,11 +648,18 @@ export function useJamSession() {
 
   const roleText = useMemo(() => {
     if (!role) return "현재 역할 미선택";
-    return `${role === "host" ? "호스트" : "연주자"}${myInstrument ? ` · ${instrumentLabels[myInstrument]}` : ""}`;
+    if (role === "host") return "호스트 · 보컬";
+    return `${role === "host" ? "호스트" : "연주자"}${myInstrument ? ` · ${instrumentLabels[myInstrument]}` : " · 악기 미선택"}`;
   }, [role, myInstrument]);
 
   return {
     socketUrl: SOCKET_URL,
+    songs,
+    songsLoading,
+    songsError,
+    selectedSongId,
+    selectedSongTitle,
+    availableInstruments,
     roomId,
     role,
     roleText,
@@ -608,6 +676,8 @@ export function useJamSession() {
     isHost: role === "host",
     isParticipant: role === "participant",
     inRoom: Boolean(role && roomId),
+    setSelectedSongId,
+    fetchSongs,
     createRoom,
     joinRoom,
     startSong,

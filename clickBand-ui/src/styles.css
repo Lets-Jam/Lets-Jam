@@ -227,6 +227,54 @@ body {
   letter-spacing: 0.04em;
 }
 
+.song-selector {
+  width: 100%;
+  max-width: 760px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.song-card {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  border-radius: 22px;
+  padding: 1rem 1.15rem;
+  text-align: left;
+  display: grid;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.song-card.selected {
+  border-color: rgba(126, 240, 200, 0.6);
+  background: rgba(126, 240, 200, 0.14);
+}
+
+.song-card-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.song-modal-content {
+  max-width: 720px;
+}
+
+.modal-helper-text {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  text-align: center;
+}
+
+.modal-message-block {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+}
+
 .main-footer {
   width: 100%;
   display: flex;
@@ -263,26 +311,6 @@ body {
 .footer-right {
   font-size: 0.75rem; /* 12px */
   opacity: 0.4;
-}
-
-.instrument-selector {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.instrument-chip {
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.06);
-  color: white;
-  border-radius: 999px;
-  padding: 0.7rem 1rem;
-  font-size: 0.95rem;
-}
-
-.instrument-chip.selected {
-  border-color: #88f3c7;
-  background: rgba(136, 243, 199, 0.18);
 }
 
 .jam-room-page {
@@ -345,6 +373,11 @@ body {
 .jam-subtitle {
   margin: 12px 0 0;
   color: rgba(255, 255, 255, 0.78);
+}
+
+.jam-song-title {
+  margin: 8px 0 0;
+  color: #7ef0c8;
 }
 
 .jam-header-actions {
@@ -563,8 +596,7 @@ body {
   }
 
   .jam-primary-button,
-  .jam-secondary-button,
-  .instrument-chip {
+  .jam-secondary-button {
     width: 100%;
   }
 }

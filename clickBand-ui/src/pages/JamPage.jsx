@@ -1,13 +1,11 @@
 import React from "react";
 import { formatTime, instrumentLabels } from "../hooks/useJamSession";
 
-const participantOrder = ["vocal", "piano", "guitar", "drums"];
-const selectableInstruments = ["piano", "guitar", "drums"];
-
 export default function JamPage({ onLeave, session }) {
   const progress = session.playback.duration
     ? Math.min((session.playback.current / session.playback.duration) * 100, 100)
     : 0;
+  const visibleInstruments = ["vocal", ...session.availableInstruments];
 
   return (
     <div className="jam-room-page">
@@ -17,6 +15,7 @@ export default function JamPage({ onLeave, session }) {
             <p className="jam-overline">Live Session</p>
             <h1>Jam Room</h1>
             <p className="jam-subtitle">{session.roleText}</p>
+            <p className="jam-song-title">{session.selectedSongTitle}</p>
           </div>
           <div className="jam-header-actions">
             <div className="room-code-card">
@@ -43,7 +42,7 @@ export default function JamPage({ onLeave, session }) {
         </section>
 
         <section className="jam-members-grid">
-          {participantOrder.map((instrument) => {
+          {visibleInstruments.map((instrument) => {
             const isActive = session.activeInstruments[instrument];
             const joinedAt = session.activatedAt[instrument];
 
@@ -84,10 +83,10 @@ export default function JamPage({ onLeave, session }) {
           <section className="jam-control-card">
             <div>
               <p className="jam-section-label">Player Control</p>
-              <h2>{instrumentLabels[session.myInstrument]} 파트 준비 완료</h2>
-              <p>재생 중이 아닌 다른 파트로 변경할 수 있고, 변경 시 이전 파트는 꺼지고 새 파트가 켜집니다.</p>
+              <h2>{session.myInstrument ? `${instrumentLabels[session.myInstrument]} 파트 선택됨` : "연주 악기를 선택하세요"}</h2>
+              <p>이 곡 폴더 안에 있는 악기만 표시합니다. 선택하면 이전 악기는 꺼지고 새 악기가 켜집니다.</p>
               <div className="jam-switcher">
-                {selectableInstruments.map((instrument) => {
+                {session.availableInstruments.map((instrument) => {
                   const isCurrent = session.myInstrument === instrument;
                   const isBlocked = session.activeInstruments[instrument] && !isCurrent;
 
@@ -106,10 +105,10 @@ export default function JamPage({ onLeave, session }) {
               </div>
             </div>
             <div className="jam-control-actions">
-              <button className="jam-secondary-button" onClick={session.manualPlay}>
+              <button className="jam-secondary-button" onClick={session.manualPlay} disabled={!session.myInstrument}>
                 수동 연주 요청
               </button>
-              <button className="jam-primary-button" onClick={session.enableMotion}>
+              <button className="jam-primary-button" onClick={session.enableMotion} disabled={!session.myInstrument}>
                 {session.motionEnabled ? "모션 감지 활성화됨" : "모션 감지 켜기"}
               </button>
             </div>

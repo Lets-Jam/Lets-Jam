@@ -1,5 +1,7 @@
 const express = require("express");
+const fs = require("fs");
 const http = require("http");
+const path = require("path");
 const { Server } = require("socket.io");
 
 const app = express();
@@ -16,6 +18,48 @@ const io = new Server(server, {
 const rooms = {};
 const roomSyncIntervals = {};
 const PLAYABLE_INSTRUMENTS = ["piano", "guitar", "drums"];
+const AUDIO_ROOT = path.resolve(__dirname, "../clickBand-ui/public/audio");
+
+function listSongDirectories() {
+  if (!fs.existsSync(AUDIO_ROOT)) return [];
+
+  return fs
+    .readdirSync(AUDIO_ROOT, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => {
+      const songDir = path.join(AUDIO_ROOT, entry.name);
+      const trackFiles = fs
+        .readdirSync(songDir, { withFileTypes: true })
+        .filter((file) => file.isFile() && file.name.endsWith(".mp3"))
+        .map((file) => path.parse(file.name).name)
+        .filter((name) => ["vocal", ...PLAYABLE_INSTRUMENTS].includes(name))
+        .sort();
+
+      return {
+        id: entry.name,
+        title: entry.name,
+        tracks: trackFiles,
+        availableInstruments: trackFiles.filter((track) => PLAYABLE_INSTRUMENTS.includes(track)),
+      };
+    })
+    .filter((song) => song.tracks.includes("vocal"));
+}
+
+function getSongById(songId) {
+  return listSongDirectories().find((song) => song.id === songId) || null;
+}
+
+function createActiveState(song) {
+  const state = { vocal: false, piano: false, guitar: false, drums: false };
+  if (song.tracks.includes("vocal")) state.vocal = true;
+  return state;
+}
+
+function createActivatedAtState(song) {
+  const state = { vocal: null, piano: null, guitar: null, drums: null };
+  if (song.tracks.includes("vocal")) state.vocal = 0;
+  return state;
+}
 
 function getElapsedSec(room) {
   if (!room?.startedAt) return 0;
@@ -68,7 +112,7 @@ function deactivateInstrument(room, instrument) {
 }
 
 function activateInstrument(room, instrument) {
-  if (!PLAYABLE_INSTRUMENTS.includes(instrument)) return false;
+  if (!room.availableInstruments.includes(instrument)) return false;
   if (room.activeInstruments[instrument]) return false;
 
   room.activeInstruments[instrument] = true;
@@ -80,26 +124,33 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true });
 });
 
+app.get("/songs", (_req, res) => {
+  res.status(200).json({ songs: listSongDirectories() });
+});
+
 io.on("connection", (socket) => {
-  socket.on("create_room", () => {
+  socket.on("get_songs", () => {
+    socket.emit("songs_list", { songs: listSongDirectories() });
+  });
+
+  socket.on("create_room", ({ songId }) => {
+    const song = getSongById(songId);
+    if (!song) {
+      socket.emit("join_error", "선택한 곡을 찾을 수 없습니다.");
+      return;
+    }
+
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
 
     rooms[roomId] = {
       host: socket.id,
+      songId: song.id,
+      songTitle: song.title,
+      availableInstruments: song.availableInstruments,
       started: false,
       startedAt: null,
-      activeInstruments: {
-        vocal: true,
-        piano: false,
-        guitar: false,
-        drums: false,
-      },
-      activatedAt: {
-        vocal: 0,
-        piano: null,
-        guitar: null,
-        drums: null,
-      },
+      activeInstruments: createActiveState(song),
+      activatedAt: createActivatedAtState(song),
       participants: {},
     };
 
@@ -108,6 +159,9 @@ io.on("connection", (socket) => {
     socket.emit("room_created", {
       roomId,
       role: "host",
+      songId: song.id,
+      songTitle: song.title,
+      availableInstruments: song.availableInstruments,
       activeInstruments: rooms[roomId].activeInstruments,
       activatedAt: rooms[roomId].activatedAt,
     });
@@ -115,24 +169,23 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("room_state", rooms[roomId]);
   });
 
-  socket.on("join_room", ({ roomId, instrument }) => {
+  socket.on("join_room", ({ roomId }) => {
     const room = rooms[roomId];
     if (!room) {
       socket.emit("join_error", "존재하지 않는 방입니다.");
       return;
     }
-    if (!PLAYABLE_INSTRUMENTS.includes(instrument)) {
-      socket.emit("join_error", "선택할 수 없는 악기입니다.");
-      return;
-    }
 
     socket.join(roomId);
-    room.participants[socket.id] = { instrument };
+    room.participants[socket.id] = { instrument: null };
 
     socket.emit("joined_room", {
       roomId,
       role: "participant",
-      instrument,
+      instrument: null,
+      songId: room.songId,
+      songTitle: room.songTitle,
+      availableInstruments: room.availableInstruments,
       activeInstruments: room.activeInstruments,
       activatedAt: room.activatedAt,
       started: room.started,
@@ -148,7 +201,7 @@ io.on("connection", (socket) => {
     }
 
     io.to(roomId).emit("room_state", room);
-    io.to(roomId).emit("user_joined", { instrument });
+    io.to(roomId).emit("user_joined", { instrument: null });
   });
 
   socket.on("change_instrument", ({ roomId, instrument }) => {
@@ -157,7 +210,7 @@ io.on("connection", (socket) => {
       socket.emit("join_error", "존재하지 않는 방입니다.");
       return;
     }
-    if (!PLAYABLE_INSTRUMENTS.includes(instrument)) {
+    if (!room.availableInstruments.includes(instrument)) {
       socket.emit("join_error", "선택할 수 없는 악기입니다.");
       return;
     }
@@ -242,7 +295,7 @@ io.on("connection", (socket) => {
   socket.on("activate_instrument", ({ roomId, instrument }) => {
     const room = rooms[roomId];
     if (!room) return;
-    if (!PLAYABLE_INSTRUMENTS.includes(instrument)) return;
+    if (!room.availableInstruments.includes(instrument)) return;
 
     if (activateInstrument(room, instrument)) {
       io.to(roomId).emit("instrument_activated", {
