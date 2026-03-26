@@ -1,16 +1,16 @@
-:root {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: #e8eefc;
-  background: #0f1320;
-}
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Poppins:wght@700&family=Roboto:wght@300;500&display=swap");
 
 * {
   box-sizing: border-box;
 }
 
 body {
+  background-color: #000;
+  color: #fff;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 300;
   margin: 0;
-  background: #0f1320;
+  padding: 0;
 }
 
 .container {
@@ -28,13 +28,13 @@ body {
   padding: 16px;
 }
 
-h1,
-h2,
-p {
+.container h1,
+.container h2,
+.container p {
   margin: 0 0 10px;
 }
 
-.small {
+.container .small {
   color: #9eb0df;
   font-size: 13px;
 }
@@ -64,31 +64,28 @@ p {
   margin-bottom: 8px;
 }
 
-input,
-select,
-button {
+.container input,
+.container select,
+.container button {
   height: 38px;
   border-radius: 10px;
   border: 1px solid #42517c;
   background: #10172a;
   color: #f3f6ff;
   padding: 0 12px;
-}
-
-button {
   cursor: pointer;
   margin-right: 8px;
 }
 
-button.secondary {
+.container button.secondary {
   border-color: #5187ff;
 }
 
-button.success {
+.container button.success {
   border-color: #39d98a;
 }
 
-button.warning {
+.container button.warning {
   border-color: #f5a623;
 }
 
@@ -131,4 +128,386 @@ button.warning {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.main-page-root {
+  overflow: hidden;
+  height: 100vh;
+  position: relative;
+}
+
+.bg-cosmos-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
+.bg-cosmos-video {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: center bottom;
+}
+.bg-cosmos-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-image: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 25%, rgba(0,0,0,0.5) 75%, rgba(0,0,0,0.9) 100%);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.screen {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2.5rem 3rem;
+  box-sizing: border-box;
+}
+
+.main-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-logo {
+  font-family: "Poppins", sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: white;
+  letter-spacing: -0.02em;
+}
+
+.header-right {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  opacity: 0.6;
+  font-weight: 500;
+  color: #7D848C;
+}
+
+.main-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 2.5rem; /* 40px */
+  width: 100%;
+  padding-top: 18vh; /* 배경의 로고가 보이도록 컨텐츠를 아래로 내립니다. */
+}
+
+.main-center-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem; /* 16px */
+}
+
+.welcome-text {
+  color: rgba(255, 255, 255, 0.75); /* 텍스트가 잘 보이도록 밝기를 올립니다. */
+  font-size: 1rem; /* 16px */
+  letter-spacing: -0.01em; /* tracking-tight */
+  max-width: 512px; /* max-w-lg */
+  margin: 0;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 1.5rem; /* 24px */
+  width: 100%;
+  max-width: 448px; /* max-w-md */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.main-footer {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 0.875rem; /* 14px */
+  color: rgb(156 163 175); /* text-gray-400 */
+}
+
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem; /* 8px */
+  opacity: 0.6;
+}
+
+.footer-left span:first-child {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em; /* tracking-widest */
+}
+
+.footer-left .separator {
+  width: 0.25rem; /* w-1 */
+  height: 0.25rem; /* h-1 */
+  background-color: white;
+  border-radius: 9999px;
+}
+
+.footer-left span:last-child {
+  font-size: 0.75rem; /* 12px */
+}
+
+.footer-right {
+  font-size: 0.75rem; /* 12px */
+  opacity: 0.4;
+}
+
+.cosmos-button {
+    background-color: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+    transition: all 0.3s ease;
+    text-align: center;
+    cursor: pointer;
+    flex: 1;
+    padding: 1rem 0; /* py-4 */
+    font-size: 1rem; /* text-base */
+    font-weight: 700; /* font-bold */
+    color: white;
+    letter-spacing: 0.05em; /* tracking-wide */
+    height: auto; /* reset from previous button styles */
+}
+.cosmos-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.8);
+    transform: translateY(-2px);
+    box-shadow: 0 0 25px rgba(255,255,255,0.3), inset 0 0 10px rgba(255,255,255,0.1);
+}
+
+.admin-mode-button {
+  position: fixed;
+  z-index: 3;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.4);
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.3s ease;
+  height: auto;
+}
+
+.admin-mode-button:hover {
+  color: #fff;
+  border-color: #fff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.mobile-break {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-break {
+    display: block;
+  }
+  .main-content {
+    padding-top: 8vh; /* 모바일에서 문구를 더 위로 올립니다. */
+  }
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  animation: fadeIn 0.3s ease;
+  overflow-y: auto;
+  display: flex;
+}
+
+.modal-scroll-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  width: 100%;
+  padding: 2rem 1rem;
+  gap: 1.5rem;
+  margin: auto;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px);
+}
+
+.modal-content {
+  position: relative;
+  background-color: rgba(107, 129, 201, 0.2);
+  border: 1px solid rgba(143, 179, 255, 0.3);
+  border-radius: 16px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 420px;
+  backdrop-filter: blur(24px);
+  animation: scaleUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close-button {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: rgba(107, 129, 201, 0.2);
+  border: 1px solid rgba(143, 179, 255, 0.3);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-close-button:hover {
+  background-color: rgba(107, 129, 201, 0.4);
+}
+
+.modal-title {
+  font-family: 'Poppins', sans-serif;
+  font-style: normal;
+  font-size: 2rem;
+  font-weight: 300;
+  letter-spacing: 0.025em;
+  color: white;
+  opacity: 0.9;
+  text-align: center;
+  margin-top: 0rem;
+  margin-bottom: 1.5rem;
+}
+
+.join-options-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.join-option-box {
+  background-color: rgba(107, 129, 201, 0.15);
+  border: 1px solid rgba(143, 179, 255, 0.2);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.join-option-label {
+  display: block;
+  font-size: 16px;
+  text-align: center;
+  text-transform: unset;
+  letter-spacing: 0.1em;
+  color: #fff;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.jam-code-input {
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(143, 179, 255, 0.2);
+  color: white;
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 1rem;
+  text-align: center;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+}
+
+.jam-code-input:focus {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-color: rgba(143, 179, 255, 0.7);
+  box-shadow: 0 0 10px rgba(143, 179, 255, 0.3);
+  outline: none;
+}
+
+.join-option-button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background-color: rgba(107, 129, 201, 0.15);
+  border: 1px solid rgba(143, 179, 255, 0.2);
+  color: white;
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.qr-scan-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.join-option-button:hover {
+  background-color: rgba(107, 129, 201, 0.3);
+  border-color: rgba(143, 179, 255, 0.7);
+  box-shadow: 0 0 15px rgba(143, 179, 255, 0.25);
+}
+
+.modal-submit-button {
+  height: 56px;
+  width: 140px;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  border-radius: 16px;
+  background-color: rgba(107, 129, 201, 0.2);
+  border: 1px solid rgba(143, 179, 255, 0.3);
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease, margin-left 0.4s ease;
+  padding: 0;
+  margin-left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  pointer-events: none;
+  flex-shrink: 0;
+  transform: translateZ(0);
+}
+
+.modal-submit-button.show {
+  max-width: 140px;
+  opacity: 1;
+  margin-left: 1rem;
+  pointer-events: auto;
+}
+
+.modal-submit-button:hover {
+  background-color: rgba(107, 129, 201, 0.4);
 }

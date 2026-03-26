@@ -1,0 +1,124 @@
+import React, { useState } from "react";
+
+const MainPage = ({ onGoToDevPage, onGoToJamPage }) => {
+  const [isJoinModalOpen, setJoinModalOpen] = useState(false);
+  const [jamCode, setJamCode] = useState("");
+
+  const openJoinModal = () => {
+    setJoinModalOpen(true);
+    setJamCode("");
+  };
+  const closeJoinModal = () => setJoinModalOpen(false);
+
+  const handleCodeChange = (e) => {
+    // 정규식을 사용해 영문 대문자와 숫자만 남기고 모두 제거
+    const formatted = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    setJamCode(formatted);
+  };
+
+  const handleJoinSubmit = () => {
+    if (jamCode.length < 6) {
+      return alert("6자리 코드를 정확히 입력해주세요.");
+    }
+    // 임시로 페이지 연결 테스트를 위해 유효성 검사 없이 바로 이동합니다.
+    onGoToJamPage();
+  };
+
+  const handleImageCapture = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      alert("사진 촬영이 완료되었습니다. 실제 운영 시에는 여기서 사진 속 QR을 분석합니다.");
+      // 향후 여기에 jsQR 등의 라이브러리를 활용해 사진 속 코드를 읽는 로직을 추가합니다.
+    }
+  };
+
+  return (
+    <div className="main-page-root">
+      <div className="bg-cosmos-container">
+        <video autoPlay loop muted playsInline className="bg-cosmos-video">
+          <source src="/video/pgM_bg.mp4" type="video/mp4" />
+        </video>
+        <div className="bg-cosmos-overlay"></div>
+      </div>
+
+      <div className="screen active-screen">
+        <header className="main-header">
+          <div className="header-logo">Let's Jam</div>
+          <div className="header-right">DDALGGAKTON</div>
+        </header>
+
+        <main className="main-content">
+          <div className="main-center-content">
+            <p className="welcome-text">
+              Welcome to Let's Jam!<br className="mobile-break" /> 즉석 연주로 새로운 인연을 만들어 보세요.
+            </p>
+          </div>
+
+          <div className="action-buttons">
+            <button className="cosmos-button" onClick={onGoToJamPage}>생성하기</button>
+            <button className="cosmos-button" onClick={openJoinModal}>참여하기</button>
+          </div>
+        </main>
+
+        <footer className="main-footer">
+          <div className="footer-left">
+            <span>Team Members</span>
+            <span className="separator"></span>
+            <span>신국현 | 김장현</span>
+          </div>
+          <div className="footer-right">Ver 1.0.0</div>
+        </footer>
+      </div>
+
+      <button className="admin-mode-button" onClick={onGoToDevPage}>
+        dev
+      </button>
+
+      {isJoinModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-backdrop"></div>
+          <div className="modal-scroll-wrapper">
+            <div className="modal-content">
+              <h2 className="modal-title">Jam Code</h2>
+              
+              <div className="join-options-container">
+                <div className="jam-code-input-wrapper">
+                  <input 
+                    type="text" 
+                    className="jam-code-input" 
+                    placeholder="ex: A1B2C3" 
+                    maxLength={6}
+                    value={jamCode}
+                    onChange={handleCodeChange}
+                  />
+                </div>
+
+                <label className="join-option-button qr-scan-button" style={{ cursor: "pointer" }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+                    <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                    <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+                    <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+                    <rect x="7" y="7" width="10" height="10" rx="1"></rect>
+                  </svg>
+                  QR코드 촬영하기
+                  <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handleImageCapture} />
+                </label>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button type="button" onClick={closeJoinModal} className="modal-close-button">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+              <button type="button" className={`modal-submit-button ${jamCode.length > 0 ? "show" : ""}`} onClick={handleJoinSubmit}>
+                입장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default MainPage;
