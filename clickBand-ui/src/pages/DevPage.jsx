@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { instrumentLabels } from "../hooks/useJamSession";
-
-const allInstruments = ["vocal", "piano", "guitar", "drums"];
+import { getInstrumentLabel } from "../hooks/useJamSession";
 
 function formatTime(totalSeconds) {
   const sec = Math.max(0, Math.floor(totalSeconds || 0));
@@ -35,7 +33,7 @@ export default function DevPage({ onGoBack, session }) {
 
   const availableTracks = useMemo(() => {
     if (!selectedSong) return [];
-    return selectedSong.tracks.filter((track) => allInstruments.includes(track));
+    return selectedSong.tracks;
   }, [selectedSong]);
 
   const addLog = (message) => {
@@ -282,7 +280,7 @@ export default function DevPage({ onGoBack, session }) {
                 onClick={() => toggleInstrument(instrument)}
                 disabled={isFixed}
               >
-                {instrumentLabels[instrument]}
+                {getInstrumentLabel(instrument)}
                 {selected ? " ON" : " OFF"}
               </button>
             );

@@ -1,10 +1,9 @@
 function getBrowserSocketUrl() {
   if (typeof window === "undefined") {
-    return "http://127.0.0.1:3000";
+    return "https://127.0.0.1:5173";
   }
 
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}:3000`;
+  return window.location.origin;
 }
 
 export function resolveSocketUrl() {

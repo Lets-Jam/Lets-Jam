@@ -1,5 +1,5 @@
 import React from "react";
-import { formatTime, instrumentLabels } from "../hooks/useJamSession";
+import { formatTime, getInstrumentLabel } from "../hooks/useJamSession";
 
 export default function JamPage({ onLeave, session }) {
   const progress = session.playback.duration
@@ -49,7 +49,7 @@ export default function JamPage({ onLeave, session }) {
             return (
               <article key={instrument} className={`jam-member-card ${isActive ? "active" : ""}`}>
                 <p className="jam-section-label">{instrument === "vocal" ? "HOST" : "PLAYER"}</p>
-                <h3>{instrumentLabels[instrument]}</h3>
+                <h3>{getInstrumentLabel(instrument)}</h3>
                 <strong>{isActive ? "ON AIR" : "READY"}</strong>
                 <p>
                   {joinedAt === null
@@ -99,8 +99,21 @@ export default function JamPage({ onLeave, session }) {
           <section className="jam-control-card">
             <div>
               <p className="jam-section-label">Player Control</p>
-              <h2>{session.myInstrument ? `${instrumentLabels[session.myInstrument]} 파트 선택됨` : "연주 악기를 선택하세요"}</h2>
-              <p>이 곡 폴더 안에 있는 악기만 표시합니다. 선택하면 이전 악기는 꺼지고 새 악기가 켜집니다.</p>
+              <h2>{session.myInstrument ? `${getInstrumentLabel(session.myInstrument)} 파트 선택됨` : "연주 악기를 선택하세요"}</h2>
+              <p>악기 선택은 파트만 고릅니다. 실제 재생은 아래 수동 버튼이나 모션 감지로 시작됩니다.</p>
+              <div className="jam-sensitivity">
+                <label htmlFor="motion-threshold">모션 민감도</label>
+                <input
+                  id="motion-threshold"
+                  type="range"
+                  min="12"
+                  max="40"
+                  step="1"
+                  value={session.motionThreshold}
+                  onChange={(e) => session.setMotionThreshold(Number(e.target.value))}
+                />
+                <span>{session.motionThreshold}</span>
+              </div>
               <div className="jam-switcher">
                 {session.availableInstruments.map((instrument) => {
                   const isCurrent = session.myInstrument === instrument;
@@ -114,7 +127,7 @@ export default function JamPage({ onLeave, session }) {
                       onClick={() => session.changeInstrument(instrument)}
                       disabled={isCurrent || isBlocked || session.isChangingInstrument}
                     >
-                      {instrumentLabels[instrument]}
+                      {getInstrumentLabel(instrument)}
                     </button>
                   );
                 })}
@@ -122,7 +135,7 @@ export default function JamPage({ onLeave, session }) {
             </div>
             <div className="jam-control-actions">
               <button className="jam-secondary-button" onClick={session.manualPlay} disabled={!session.myInstrument}>
-                수동 연주 요청
+                {session.myInstrument && session.activeInstruments[session.myInstrument] ? "수동으로 멈추기" : "수동으로 재생하기"}
               </button>
               <button className="jam-primary-button" onClick={session.enableMotion} disabled={!session.myInstrument}>
                 {session.motionEnabled ? "모션 감지 활성화됨" : "모션 감지 켜기"}
@@ -130,23 +143,6 @@ export default function JamPage({ onLeave, session }) {
             </div>
           </section>
         )}
-
-        <section className="jam-log-card">
-          <div className="jam-log-header">
-            <div>
-              <p className="jam-section-label">Realtime Feed</p>
-              <h2>세션 로그</h2>
-            </div>
-            <span>{session.socketUrl}</span>
-          </div>
-          <div className="jam-log-list">
-            {session.logs.length === 0 ? (
-              <p className="jam-log-empty">아직 로그가 없습니다.</p>
-            ) : (
-              session.logs.map((line, idx) => <div key={`${line}-${idx}`}>{line}</div>)
-            )}
-          </div>
-        </section>
       </div>
     </div>
   );

@@ -1,11 +1,30 @@
 const express = require("express");
 const fs = require("fs");
+const https = require("https");
 const http = require("http");
 const path = require("path");
 const { Server } = require("socket.io");
 
 const app = express();
-const server = http.createServer(app);
+const defaultSslKeyPath = path.resolve(__dirname, "../certs/localhost-key.pem");
+const defaultSslCertPath = path.resolve(__dirname, "../certs/localhost.pem");
+const sslKeyPath = process.env.SSL_KEY_PATH || defaultSslKeyPath;
+const sslCertPath = process.env.SSL_CERT_PATH || defaultSslCertPath;
+const useHttps =
+  Boolean(sslKeyPath) &&
+  Boolean(sslCertPath) &&
+  fs.existsSync(sslKeyPath) &&
+  fs.existsSync(sslCertPath);
+
+const server = useHttps
+  ? https.createServer(
+      {
+        key: fs.readFileSync(sslKeyPath),
+        cert: fs.readFileSync(sslCertPath),
+      },
+      app
+    )
+  : http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: process.env.CLIENT_ORIGIN
@@ -17,8 +36,8 @@ const io = new Server(server, {
 
 const rooms = {};
 const roomSyncIntervals = {};
-const PLAYABLE_INSTRUMENTS = ["piano", "guitar", "drums"];
 const AUDIO_ROOT = path.resolve(__dirname, "../clickBand-ui/public/audio");
+const VOCAL_TRACK = "vocal";
 
 function listSongDirectories() {
   if (!fs.existsSync(AUDIO_ROOT)) return [];
@@ -32,17 +51,16 @@ function listSongDirectories() {
         .readdirSync(songDir, { withFileTypes: true })
         .filter((file) => file.isFile() && file.name.endsWith(".mp3"))
         .map((file) => path.parse(file.name).name)
-        .filter((name) => ["vocal", ...PLAYABLE_INSTRUMENTS].includes(name))
         .sort();
 
       return {
         id: entry.name,
         title: entry.name,
         tracks: trackFiles,
-        availableInstruments: trackFiles.filter((track) => PLAYABLE_INSTRUMENTS.includes(track)),
+        availableInstruments: trackFiles.filter((track) => track !== VOCAL_TRACK),
       };
     })
-    .filter((song) => song.tracks.includes("vocal"));
+    .filter((song) => song.tracks.includes(VOCAL_TRACK));
 }
 
 function getSongById(songId) {
@@ -50,14 +68,14 @@ function getSongById(songId) {
 }
 
 function createActiveState(song) {
-  const state = { vocal: false, piano: false, guitar: false, drums: false };
-  if (song.tracks.includes("vocal")) state.vocal = true;
+  const state = Object.fromEntries(song.tracks.map((track) => [track, false]));
+  if (song.tracks.includes(VOCAL_TRACK)) state[VOCAL_TRACK] = true;
   return state;
 }
 
 function createActivatedAtState(song) {
-  const state = { vocal: null, piano: null, guitar: null, drums: null };
-  if (song.tracks.includes("vocal")) state.vocal = 0;
+  const state = Object.fromEntries(song.tracks.map((track) => [track, null]));
+  if (song.tracks.includes(VOCAL_TRACK)) state[VOCAL_TRACK] = 0;
   return state;
 }
 
@@ -103,7 +121,7 @@ function getElapsedActivationSec(room) {
 }
 
 function deactivateInstrument(room, instrument) {
-  if (!PLAYABLE_INSTRUMENTS.includes(instrument)) return false;
+  if (!instrument || instrument === VOCAL_TRACK) return false;
   if (!room.activeInstruments[instrument]) return false;
 
   room.activeInstruments[instrument] = false;
@@ -238,21 +256,11 @@ io.on("connection", (socket) => {
     }
 
     const previousWasActive = deactivateInstrument(room, previousInstrument);
-    const nextActivated = activateInstrument(room, instrument);
-
     participant.instrument = instrument;
 
     if (previousWasActive) {
       io.to(roomId).emit("instrument_deactivated", {
         instrument: previousInstrument,
-        activeInstruments: room.activeInstruments,
-        activatedAt: room.activatedAt,
-      });
-    }
-
-    if (nextActivated) {
-      io.to(roomId).emit("instrument_activated", {
-        instrument,
         activeInstruments: room.activeInstruments,
         activatedAt: room.activatedAt,
       });
@@ -275,7 +283,7 @@ io.on("connection", (socket) => {
 
     room.started = true;
     room.startedAt = Date.now();
-    room.activatedAt.vocal = 0;
+    room.activatedAt[VOCAL_TRACK] = 0;
 
     io.to(roomId).emit("song_started", {
       activeInstruments: room.activeInstruments,
@@ -299,6 +307,21 @@ io.on("connection", (socket) => {
 
     if (activateInstrument(room, instrument)) {
       io.to(roomId).emit("instrument_activated", {
+        instrument,
+        activeInstruments: room.activeInstruments,
+        activatedAt: room.activatedAt,
+      });
+      io.to(roomId).emit("room_state", room);
+    }
+  });
+
+  socket.on("deactivate_instrument", ({ roomId, instrument }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+    if (!room.availableInstruments.includes(instrument)) return;
+
+    if (deactivateInstrument(room, instrument)) {
+      io.to(roomId).emit("instrument_deactivated", {
         instrument,
         activeInstruments: room.activeInstruments,
         activatedAt: room.activatedAt,
@@ -341,8 +364,12 @@ const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || "0.0.0.0";
 
 server.listen(PORT, HOST, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  const protocol = useHttps ? "https" : "http";
+  console.log(`Server running on ${protocol}://localhost:${PORT}`);
   if (HOST === "0.0.0.0") {
-    console.log(`Server is exposed on your local network at http://<your-ip>:${PORT}`);
+    console.log(`Server is exposed on your local network at ${protocol}://<your-ip>:${PORT}`);
+  }
+  if (!useHttps && sslKeyPath && sslCertPath) {
+    console.warn("SSL_KEY_PATH/SSL_CERT_PATH가 설정되었지만 파일을 찾지 못해 HTTP로 실행했습니다.");
   }
 });

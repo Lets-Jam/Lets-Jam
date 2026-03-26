@@ -566,6 +566,24 @@ body {
   margin-top: 16px;
 }
 
+.jam-sensitivity {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.jam-sensitivity label,
+.jam-sensitivity span {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.92rem;
+}
+
+.jam-sensitivity input[type="range"] {
+  width: 100%;
+}
+
 .jam-switch-chip {
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.14);
