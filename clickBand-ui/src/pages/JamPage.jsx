@@ -6,6 +6,9 @@ export default function JamPage({ onLeave, session }) {
     ? Math.min((session.playback.current / session.playback.duration) * 100, 100)
     : 0;
   const visibleInstruments = ["vocal", ...session.availableInstruments];
+  const filteredHostSongs = session.songs.filter((song) =>
+    song.title.toLowerCase().includes(session.hostSongSearch.trim().toLowerCase())
+  );
 
   return (
     <div className="jam-room-page">
@@ -66,7 +69,29 @@ export default function JamPage({ onLeave, session }) {
             <div>
               <p className="jam-section-label">Host Control</p>
               <h2>보컬 호스트 패널</h2>
-              <p>트랙을 미리 로드한 뒤 합주를 시작할 수 있습니다.</p>
+              <p>트랙을 미리 로드하고, 방 안에서도 곡 변경과 재시작을 할 수 있습니다.</p>
+              <div className="song-search-wrap host-song-search">
+                <input
+                  type="text"
+                  className="song-search-input"
+                  placeholder="노래 검색"
+                  value={session.hostSongSearch}
+                  onChange={(e) => session.setHostSongSearch(e.target.value)}
+                />
+              </div>
+              <div className="song-selector song-selector-scroll host-song-list">
+                {filteredHostSongs.map((song) => (
+                  <button
+                    key={song.id}
+                    type="button"
+                    className={`song-card ${session.selectedSongId === song.id ? "selected" : ""}`}
+                    onClick={() => session.changeSong(song.id)}
+                  >
+                    <span className="song-card-label">Song</span>
+                    <strong>{song.title}</strong>
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="jam-control-actions">
               <button className="jam-secondary-button" onClick={session.preloadAudio}>
@@ -75,6 +100,9 @@ export default function JamPage({ onLeave, session }) {
               <button className="jam-primary-button" onClick={session.startSong}>
                 곡 시작
               </button>
+              <button className="jam-secondary-button" onClick={session.restartSong}>
+                재시작
+              </button>
             </div>
           </section>
         )}
@@ -82,12 +110,12 @@ export default function JamPage({ onLeave, session }) {
         {session.isHost && session.joinUrl ? (
           <section className="jam-qr-card">
             <div>
-              <p className="jam-section-label">Quick Join</p>
+              {/* <p className="jam-section-label">Quick Join</p> */}
               <h2>QR로 바로 입장</h2>
               <p>참가자가 카메라로 QR을 스캔하면 이 방 링크로 들어와 자동 입장을 시도합니다.</p>
-              <a className="jam-join-link" href={session.joinUrl}>
+              {/* <a className="jam-join-link" href={session.joinUrl}>
                 {session.joinUrl}
-              </a>
+              </a> */}
             </div>
             <div className="jam-qr-box">
               <img src={session.qrCodeImageUrl} alt={`Join room ${session.roomId} QR code`} />

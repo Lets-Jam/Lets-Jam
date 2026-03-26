@@ -39,6 +39,35 @@ const roomSyncIntervals = {};
 const AUDIO_ROOT = path.resolve(__dirname, "../clickBand-ui/public/audio");
 const VOCAL_TRACK = "vocal";
 
+function resetRoomForSong(room, song) {
+  room.songId = song.id;
+  room.songTitle = song.title;
+  room.availableInstruments = song.availableInstruments;
+  room.started = false;
+  room.startedAt = null;
+  room.activeInstruments = createActiveState(song);
+  room.activatedAt = createActivatedAtState(song);
+
+  Object.values(room.participants).forEach((participant) => {
+    if (participant.instrument && !room.availableInstruments.includes(participant.instrument)) {
+      participant.instrument = null;
+    }
+  });
+}
+
+function restartRoomPlayback(room) {
+  room.started = true;
+  room.startedAt = Date.now();
+  room.activeInstruments = {
+    ...Object.fromEntries(Object.keys(room.activeInstruments).map((key) => [key, false])),
+    [VOCAL_TRACK]: true,
+  };
+  room.activatedAt = {
+    ...Object.fromEntries(Object.keys(room.activatedAt).map((key) => [key, null])),
+    [VOCAL_TRACK]: 0,
+  };
+}
+
 function listSongDirectories() {
   if (!fs.existsSync(AUDIO_ROOT)) return [];
 
@@ -162,15 +191,16 @@ io.on("connection", (socket) => {
 
     rooms[roomId] = {
       host: socket.id,
-      songId: song.id,
-      songTitle: song.title,
-      availableInstruments: song.availableInstruments,
+      songId: "",
+      songTitle: "",
+      availableInstruments: [],
       started: false,
       startedAt: null,
-      activeInstruments: createActiveState(song),
-      activatedAt: createActivatedAtState(song),
+      activeInstruments: {},
+      activatedAt: {},
       participants: {},
     };
+    resetRoomForSong(rooms[roomId], song);
 
     socket.join(roomId);
 
@@ -276,14 +306,28 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("room_state", room);
   });
 
+  socket.on("change_song", ({ roomId, songId }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+    if (room.host !== socket.id) return;
+
+    const song = getSongById(songId);
+    if (!song) {
+      socket.emit("join_error", "선택한 곡을 찾을 수 없습니다.");
+      return;
+    }
+
+    stopRoomSync(roomId);
+    resetRoomForSong(room, song);
+    io.to(roomId).emit("room_state", room);
+  });
+
   socket.on("start_song", ({ roomId }) => {
     const room = rooms[roomId];
     if (!room) return;
     if (room.host !== socket.id) return;
 
-    room.started = true;
-    room.startedAt = Date.now();
-    room.activatedAt[VOCAL_TRACK] = 0;
+    restartRoomPlayback(room);
 
     io.to(roomId).emit("song_started", {
       activeInstruments: room.activeInstruments,
@@ -297,6 +341,27 @@ io.on("connection", (socket) => {
     });
     startRoomSync(roomId);
 
+    io.to(roomId).emit("room_state", room);
+  });
+
+  socket.on("restart_song", ({ roomId }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+    if (room.host !== socket.id) return;
+
+    restartRoomPlayback(room);
+    startRoomSync(roomId);
+
+    io.to(roomId).emit("song_started", {
+      activeInstruments: room.activeInstruments,
+      activatedAt: room.activatedAt,
+      startedAt: room.startedAt,
+    });
+    io.to(roomId).emit("playback_sync", {
+      startedAt: room.startedAt,
+      elapsedSec: 0,
+      serverNow: Date.now(),
+    });
     io.to(roomId).emit("room_state", room);
   });
 

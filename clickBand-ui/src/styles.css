@@ -255,6 +255,27 @@ body {
   gap: 14px;
 }
 
+.song-selector-scroll {
+  max-height: 320px;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.song-search-wrap {
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.song-search-input {
+  width: 100%;
+  height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  padding: 0 14px;
+}
+
 .song-card {
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.06);
@@ -512,6 +533,19 @@ body {
   justify-content: space-between;
   gap: 24px;
   align-items: center;
+}
+
+.host-song-search,
+.host-song-list {
+  margin-top: 16px;
+  max-width: 620px;
+}
+
+.host-song-list {
+  grid-template-columns: 1fr;
+  max-height: 260px;
+  overflow-y: auto;
+  align-content: start;
 }
 
 .jam-qr-card {

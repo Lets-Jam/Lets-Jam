@@ -4,9 +4,14 @@ const MainPage = ({ onGoToDevPage, session }) => {
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [isJoinModalOpen, setJoinModalOpen] = useState(false);
   const [jamCode, setJamCode] = useState("");
+  const [songSearch, setSongSearch] = useState("");
+  const filteredSongs = session.songs.filter((song) =>
+    song.title.toLowerCase().includes(songSearch.trim().toLowerCase())
+  );
 
   const openCreateModal = () => {
     setCreateModalOpen(true);
+    setSongSearch("");
   };
   const closeCreateModal = () => setCreateModalOpen(false);
 
@@ -125,8 +130,18 @@ const MainPage = ({ onGoToDevPage, session }) => {
                 ) : null}
 
                 {!session.songsLoading && !session.songsError ? (
-                  <div className="song-selector">
-                    {session.songs.map((song) => (
+                  <>
+                    <div className="song-search-wrap">
+                      <input
+                        type="text"
+                        className="song-search-input"
+                        placeholder="노래 검색"
+                        value={songSearch}
+                        onChange={(e) => setSongSearch(e.target.value)}
+                      />
+                    </div>
+                    <div className="song-selector song-selector-scroll">
+                    {filteredSongs.map((song) => (
                       <button
                         key={song.id}
                         type="button"
@@ -137,7 +152,8 @@ const MainPage = ({ onGoToDevPage, session }) => {
                         <strong>{song.title}</strong>
                       </button>
                     ))}
-                  </div>
+                    </div>
+                  </>
                 ) : null}
               </div>
             </div>
