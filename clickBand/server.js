@@ -15,6 +15,7 @@ const io = new Server(server, {
 
 const rooms = {};
 const roomSyncIntervals = {};
+const PLAYABLE_INSTRUMENTS = ["piano", "guitar", "drums"];
 
 function getElapsedSec(room) {
   if (!room?.startedAt) return 0;
@@ -45,6 +46,34 @@ function startRoomSync(roomId) {
       serverNow: Date.now(),
     });
   }, 1000);
+}
+
+function getParticipantRoom(room, socketId) {
+  if (!room?.participants?.[socketId]) return null;
+  return room.participants[socketId];
+}
+
+function getElapsedActivationSec(room) {
+  const elapsedMs = room.startedAt ? Date.now() - room.startedAt : 0;
+  return Math.max(0, Math.floor(elapsedMs / 1000));
+}
+
+function deactivateInstrument(room, instrument) {
+  if (!PLAYABLE_INSTRUMENTS.includes(instrument)) return false;
+  if (!room.activeInstruments[instrument]) return false;
+
+  room.activeInstruments[instrument] = false;
+  room.activatedAt[instrument] = null;
+  return true;
+}
+
+function activateInstrument(room, instrument) {
+  if (!PLAYABLE_INSTRUMENTS.includes(instrument)) return false;
+  if (room.activeInstruments[instrument]) return false;
+
+  room.activeInstruments[instrument] = true;
+  room.activatedAt[instrument] = getElapsedActivationSec(room);
+  return true;
 }
 
 app.get("/health", (_req, res) => {
@@ -92,6 +121,10 @@ io.on("connection", (socket) => {
       socket.emit("join_error", "존재하지 않는 방입니다.");
       return;
     }
+    if (!PLAYABLE_INSTRUMENTS.includes(instrument)) {
+      socket.emit("join_error", "선택할 수 없는 악기입니다.");
+      return;
+    }
 
     socket.join(roomId);
     room.participants[socket.id] = { instrument };
@@ -116,6 +149,70 @@ io.on("connection", (socket) => {
 
     io.to(roomId).emit("room_state", room);
     io.to(roomId).emit("user_joined", { instrument });
+  });
+
+  socket.on("change_instrument", ({ roomId, instrument }) => {
+    const room = rooms[roomId];
+    if (!room) {
+      socket.emit("join_error", "존재하지 않는 방입니다.");
+      return;
+    }
+    if (!PLAYABLE_INSTRUMENTS.includes(instrument)) {
+      socket.emit("join_error", "선택할 수 없는 악기입니다.");
+      return;
+    }
+
+    const participant = getParticipantRoom(room, socket.id);
+    if (!participant) {
+      socket.emit("join_error", "먼저 방에 참가해주세요.");
+      return;
+    }
+
+    const previousInstrument = participant.instrument;
+    if (previousInstrument === instrument) {
+      socket.emit("instrument_changed", {
+        instrument,
+        previousInstrument,
+        activeInstruments: room.activeInstruments,
+        activatedAt: room.activatedAt,
+      });
+      return;
+    }
+
+    if (room.activeInstruments[instrument]) {
+      socket.emit("join_error", "이미 재생 중인 악기로는 변경할 수 없습니다.");
+      return;
+    }
+
+    const previousWasActive = deactivateInstrument(room, previousInstrument);
+    const nextActivated = activateInstrument(room, instrument);
+
+    participant.instrument = instrument;
+
+    if (previousWasActive) {
+      io.to(roomId).emit("instrument_deactivated", {
+        instrument: previousInstrument,
+        activeInstruments: room.activeInstruments,
+        activatedAt: room.activatedAt,
+      });
+    }
+
+    if (nextActivated) {
+      io.to(roomId).emit("instrument_activated", {
+        instrument,
+        activeInstruments: room.activeInstruments,
+        activatedAt: room.activatedAt,
+      });
+    }
+
+    io.to(roomId).emit("instrument_changed", {
+      socketId: socket.id,
+      previousInstrument,
+      instrument,
+      activeInstruments: room.activeInstruments,
+      activatedAt: room.activatedAt,
+    });
+    io.to(roomId).emit("room_state", room);
   });
 
   socket.on("start_song", ({ roomId }) => {
@@ -145,13 +242,9 @@ io.on("connection", (socket) => {
   socket.on("activate_instrument", ({ roomId, instrument }) => {
     const room = rooms[roomId];
     if (!room) return;
-    if (!["piano", "guitar", "drums"].includes(instrument)) return;
+    if (!PLAYABLE_INSTRUMENTS.includes(instrument)) return;
 
-    if (!room.activeInstruments[instrument]) {
-      room.activeInstruments[instrument] = true;
-      const elapsedMs = room.startedAt ? Date.now() - room.startedAt : 0;
-      room.activatedAt[instrument] = Math.max(0, Math.floor(elapsedMs / 1000));
-
+    if (activateInstrument(room, instrument)) {
       io.to(roomId).emit("instrument_activated", {
         instrument,
         activeInstruments: room.activeInstruments,
@@ -176,17 +269,12 @@ io.on("connection", (socket) => {
         const leavingInstrument = room.participants[socket.id].instrument;
         delete room.participants[socket.id];
 
-        if (["piano", "guitar", "drums"].includes(leavingInstrument)) {
-          if (room.activeInstruments[leavingInstrument]) {
-            room.activeInstruments[leavingInstrument] = false;
-            room.activatedAt[leavingInstrument] = null;
-
-            io.to(roomId).emit("instrument_deactivated", {
-              instrument: leavingInstrument,
-              activeInstruments: room.activeInstruments,
-              activatedAt: room.activatedAt,
-            });
-          }
+        if (deactivateInstrument(room, leavingInstrument)) {
+          io.to(roomId).emit("instrument_deactivated", {
+            instrument: leavingInstrument,
+            activeInstruments: room.activeInstruments,
+            activatedAt: room.activatedAt,
+          });
         }
 
         io.to(roomId).emit("user_left", { instrument: leavingInstrument });

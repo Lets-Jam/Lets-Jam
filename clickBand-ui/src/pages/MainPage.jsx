@@ -1,17 +1,24 @@
 import React, { useState } from "react";
 
-const MainPage = ({ onGoToDevPage, onGoToJamPage }) => {
+const instruments = [
+  { value: "piano", label: "피아노" },
+  { value: "guitar", label: "기타" },
+  { value: "drums", label: "드럼" },
+];
+
+const MainPage = ({ onGoToDevPage, session }) => {
   const [isJoinModalOpen, setJoinModalOpen] = useState(false);
   const [jamCode, setJamCode] = useState("");
+  const [selectedInstrument, setSelectedInstrument] = useState("piano");
 
   const openJoinModal = () => {
     setJoinModalOpen(true);
     setJamCode("");
+    setSelectedInstrument("piano");
   };
   const closeJoinModal = () => setJoinModalOpen(false);
 
   const handleCodeChange = (e) => {
-    // 정규식을 사용해 영문 대문자와 숫자만 남기고 모두 제거
     const formatted = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
     setJamCode(formatted);
   };
@@ -20,8 +27,8 @@ const MainPage = ({ onGoToDevPage, onGoToJamPage }) => {
     if (jamCode.length < 6) {
       return alert("6자리 코드를 정확히 입력해주세요.");
     }
-    // 임시로 페이지 연결 테스트를 위해 유효성 검사 없이 바로 이동합니다.
-    onGoToJamPage();
+
+    session.joinRoom({ roomCode: jamCode, instrument: selectedInstrument });
   };
 
   const handleImageCapture = (e) => {
@@ -55,9 +62,17 @@ const MainPage = ({ onGoToDevPage, onGoToJamPage }) => {
           </div>
 
           <div className="action-buttons">
-            <button className="cosmos-button" onClick={onGoToJamPage}>생성하기</button>
-            <button className="cosmos-button" onClick={openJoinModal}>참여하기</button>
+            <button className="cosmos-button" onClick={session.createRoom} disabled={session.isBusy || !session.connectionReady}>
+              {session.isBusy ? "연결 중..." : "생성하기"}
+            </button>
+            <button className="cosmos-button" onClick={openJoinModal} disabled={session.isBusy || !session.connectionReady}>
+              참여하기
+            </button>
           </div>
+
+          <p className="connection-status">
+            {session.connectionReady ? "서버 연결 완료" : "서버 연결 준비 중"}
+          </p>
         </main>
 
         <footer className="main-footer">
@@ -93,6 +108,19 @@ const MainPage = ({ onGoToDevPage, onGoToJamPage }) => {
                   />
                 </div>
 
+                <div className="instrument-selector">
+                  {instruments.map((instrument) => (
+                    <button
+                      key={instrument.value}
+                      type="button"
+                      className={`instrument-chip ${selectedInstrument === instrument.value ? "selected" : ""}`}
+                      onClick={() => setSelectedInstrument(instrument.value)}
+                    >
+                      {instrument.label}
+                    </button>
+                  ))}
+                </div>
+
                 <label className="join-option-button qr-scan-button" style={{ cursor: "pointer" }}>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
@@ -110,7 +138,7 @@ const MainPage = ({ onGoToDevPage, onGoToJamPage }) => {
               <button type="button" onClick={closeJoinModal} className="modal-close-button">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
-              <button type="button" className={`modal-submit-button ${jamCode.length > 0 ? "show" : ""}`} onClick={handleJoinSubmit}>
+              <button type="button" className={`modal-submit-button ${jamCode.length > 0 ? "show" : ""}`} onClick={handleJoinSubmit} disabled={session.isBusy}>
                 입장
               </button>
             </div>

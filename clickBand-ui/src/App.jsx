@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import MainPage from "./pages/MainPage";
 import DevPage from "./pages/DevPage";
 import JamPage from "./pages/JamPage";
+import { useJamSession } from "./hooks/useJamSession";
 
 export default function App() {
+  const jamSession = useJamSession();
   const [page, setPage] = useState("main");
 
   const handleGoToDevPage = () => {
@@ -14,17 +16,19 @@ export default function App() {
     setPage("main");
   };
 
-  const handleGoToJamPage = () => {
-    setPage("jam");
-  };
+  const currentPage = useMemo(() => {
+    if (page === "dev") return "dev";
+    if (jamSession.inRoom) return "jam";
+    return "main";
+  }, [jamSession.inRoom, page]);
 
-  if (page === "dev") {
+  if (currentPage === "dev") {
     return <DevPage onGoBack={handleGoToMainPage} />;
   }
 
-  if (page === "jam") {
-    return <JamPage onLeave={handleGoToMainPage} />;
+  if (currentPage === "jam") {
+    return <JamPage session={jamSession} onLeave={jamSession.resetSession} />;
   }
 
-  return <MainPage onGoToDevPage={handleGoToDevPage} onGoToJamPage={handleGoToJamPage} />;
+  return <MainPage session={jamSession} onGoToDevPage={handleGoToDevPage} />;
 }

@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | `create_room` | 없음 | 호스트(보컬)가 새로운 합주 방을 생성합니다. |
 | `join_room` | `{ roomId, instrument }` | 연주자가 방 코드와 악기를 선택해 방에 참가합니다. |
+| `change_instrument` | `{ roomId, instrument }` | 연주자가 아직 재생 중이 아닌 다른 악기로 변경합니다. 기존 악기는 꺼지고 새 악기가 켜집니다. |
 | `start_song` | `{ roomId }` | 호스트가 곡 재생을 시작합니다. |
 | `activate_instrument`| `{ roomId, instrument }` | 기기 모션이나 버튼 클릭으로 연주자의 악기를 활성화합니다. |
 
@@ -17,6 +18,7 @@
 | --- | --- | --- |
 | `room_created` | `{ roomId, role, activeInstruments, activatedAt }` | 방 생성이 완료되었을 때 호스트에게 전달됩니다. |
 | `joined_room` | `{ roomId, role, instrument, activeInstruments, activatedAt, started, startedAt }` | 방 입장이 성공했을 때 참가자에게 전달됩니다. |
+| `instrument_changed` | `{ socketId, previousInstrument, instrument, activeInstruments, activatedAt }` | 참가자가 다른 악기로 변경했을 때 전달됩니다. |
 | `join_error` | `string` (에러 메시지) | 방 입장 실패 시 에러 메시지를 전달합니다. |
 | `song_started` | `{ activeInstruments, activatedAt, startedAt }` | 호스트가 곡을 시작했을 때 모든 참가자에게 전달됩니다. |
 | `instrument_activated` | `{ instrument, activeInstruments, activatedAt }` | 특정 악기가 활성화(소리 켜짐)되었을 때 전달됩니다. |
