@@ -81,7 +81,11 @@ const MainPage = ({ onGoToDevPage, session }) => {
           </div>
 
           <p className="connection-status">
-            {session.connectionReady ? "서버 연결 완료" : "서버 연결 준비 중"}
+            {session.connectionReady
+              ? session.pendingRoomCode
+                ? `${session.pendingRoomCode} 방으로 자동 입장 준비 중`
+                : "서버 연결 완료"
+              : "서버 연결 준비 중"}
           </p>
         </main>
 
@@ -172,17 +176,9 @@ const MainPage = ({ onGoToDevPage, session }) => {
                     onChange={handleCodeChange}
                   />
                 </div>
-                <label className="join-option-button qr-scan-button" style={{ cursor: "pointer" }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
-                    <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
-                    <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
-                    <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
-                    <rect x="7" y="7" width="10" height="10" rx="1"></rect>
-                  </svg>
-                  QR코드 촬영하기
-                  <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handleImageCapture} />
-                </label>
+                <div className="join-option-button qr-scan-button">
+                  QR 스캔으로 접속하면 이 화면을 거치지 않고 바로 방 입장을 시도합니다.
+                </div>
               </div>
             </div>
             <div className="modal-actions">

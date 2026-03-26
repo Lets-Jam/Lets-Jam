@@ -79,6 +79,22 @@ export default function JamPage({ onLeave, session }) {
           </section>
         )}
 
+        {session.isHost && session.joinUrl ? (
+          <section className="jam-qr-card">
+            <div>
+              <p className="jam-section-label">Quick Join</p>
+              <h2>QR로 바로 입장</h2>
+              <p>참가자가 카메라로 QR을 스캔하면 이 방 링크로 들어와 자동 입장을 시도합니다.</p>
+              <a className="jam-join-link" href={session.joinUrl}>
+                {session.joinUrl}
+              </a>
+            </div>
+            <div className="jam-qr-box">
+              <img src={session.qrCodeImageUrl} alt={`Join room ${session.roomId} QR code`} />
+            </div>
+          </section>
+        ) : null}
+
         {session.isParticipant && (
           <section className="jam-control-card">
             <div>

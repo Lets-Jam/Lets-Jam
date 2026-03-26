@@ -1,54 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { io } from "socket.io-client";
-import { resolveSocketUrl } from "../lib/socketUrl";
+import { instrumentLabels } from "../hooks/useJamSession";
 
-const SOCKET_URL = resolveSocketUrl();
-
-const SOCKET_EVENTS = {
-  CREATE_ROOM: "create_room",
-  JOIN_ROOM: "join_room",
-  START_SONG: "start_song",
-  ACTIVATE_INSTRUMENT: "activate_instrument",
-  ROOM_CREATED: "room_created",
-  JOINED_ROOM: "joined_room",
-  JOIN_ERROR: "join_error",
-  SONG_STARTED: "song_started",
-  INSTRUMENT_ACTIVATED: "instrument_activated",
-  INSTRUMENT_DEACTIVATED: "instrument_deactivated",
-  USER_JOINED: "user_joined",
-  USER_LEFT: "user_left",
-  ROOM_STATE: "room_state",
-  PLAYBACK_SYNC: "playback_sync",
-  HOST_LEFT: "host_left",
-};
-
-const instrumentLabels = {
-  vocal: "보컬",
-  piano: "피아노",
-  guitar: "기타",
-  drums: "드럼",
-};
-
-const trackFiles = {
-  vocal: "/audio/vocal.mp3",
-  piano: "/audio/piano.mp3",
-  guitar: "/audio/guitar.mp3",
-  drums: "/audio/drums.mp3",
-};
-
-const initialActive = {
-  vocal: false,
-  piano: false,
-  guitar: false,
-  drums: false,
-};
-
-const initialActivatedAt = {
-  vocal: 0,
-  piano: null,
-  guitar: null,
-  drums: null,
-};
+const allInstruments = ["vocal", "piano", "guitar", "drums"];
 
 function formatTime(totalSeconds) {
   const sec = Math.max(0, Math.floor(totalSeconds || 0));
@@ -57,122 +10,112 @@ function formatTime(totalSeconds) {
   return `${m}:${s}`;
 }
 
-export default function DevPage({ onGoBack }) {
-  const socketRef = useRef(null);
+export default function DevPage({ onGoBack, session }) {
   const audioContextRef = useRef(null);
   const audioStateRef = useRef({
     buffers: {},
     sources: {},
     gains: {},
   });
-
-  const [roomId, setRoomId] = useState("");
-  const [roomInput, setRoomInput] = useState("");
-  const [selectedInstrument, setSelectedInstrument] = useState("piano");
-  const [role, setRole] = useState(null);
-  const [myInstrument, setMyInstrument] = useState(null);
-  const [activeInstruments, setActiveInstruments] = useState(initialActive);
-  const [activatedAt, setActivatedAt] = useState(initialActivatedAt);
-  const [logs, setLogs] = useState([]);
-  const [motionEnabled, setMotionEnabled] = useState(false);
-  const [songStarted, setSongStarted] = useState(false);
-  const [playback, setPlayback] = useState({ current: 0, duration: 0 });
-
-  const lastTriggerAtRef = useRef(0);
-  const instrumentAlreadyTriggeredRef = useRef(false);
-  const audioStartedRef = useRef(false);
-  const songStartAtRef = useRef(null);
+  const startedRef = useRef(false);
+  const startedAtRef = useRef(null);
   const progressTimerRef = useRef(null);
-  const roleRef = useRef(null);
-  const serverStartedAtRef = useRef(null);
-  const serverDriftMsRef = useRef(0);
-  const durationLoadedRef = useRef(false);
-  const playbackDurationRef = useRef(0);
+
+  const [selectedSongId, setSelectedSongId] = useState(session.songs[0]?.id || "");
+  const [selectedInstruments, setSelectedInstruments] = useState(["vocal"]);
+  const [playback, setPlayback] = useState({ current: 0, duration: 0 });
+  const [logs, setLogs] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const selectedSong = useMemo(
+    () => session.songs.find((song) => song.id === selectedSongId) || null,
+    [session.songs, selectedSongId]
+  );
+
+  const availableTracks = useMemo(() => {
+    if (!selectedSong) return [];
+    return selectedSong.tracks.filter((track) => allInstruments.includes(track));
+  }, [selectedSong]);
 
   const addLog = (message) => {
     const time = new Date().toLocaleTimeString();
-    setLogs((prev) => [`[${time}] ${message}`, ...prev].slice(0, 200));
+    setLogs((prev) => [`[${time}] ${message}`, ...prev].slice(0, 100));
   };
 
-  const isHost = role === "host";
-  const isParticipant = role === "participant";
+  const getTrackFiles = () => {
+    if (!selectedSongId || !selectedSong) return {};
+    return availableTracks.reduce((acc, track) => {
+      acc[track] = `/audio/${selectedSongId}/${track}.mp3`;
+      return acc;
+    }, {});
+  };
 
-  useEffect(() => {
-    roleRef.current = role;
-  }, [role]);
-
-  const roleText = useMemo(() => {
-    if (!role) return "현재 역할: 미선택";
-    return `현재 역할: ${role}${myInstrument ? ` (${myInstrument})` : ""}`;
-  }, [role, myInstrument]);
-
-  const getCurrentPlaybackSeconds = () => {
-    if (!audioStartedRef.current || !audioContextRef.current || !songStartAtRef.current) {
-      if (!serverStartedAtRef.current) return 0;
-      return Math.max(
-        0,
-        (Date.now() - serverStartedAtRef.current + serverDriftMsRef.current) / 1000
-      );
+  const stopProgressLoop = () => {
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
     }
-    return Math.max(0, audioContextRef.current.currentTime - songStartAtRef.current);
   };
 
   const refreshPlayback = () => {
     const vocalBuffer = audioStateRef.current.buffers.vocal;
-    const duration = vocalBuffer ? vocalBuffer.duration : playbackDurationRef.current || 0;
-    const rawCurrent = getCurrentPlaybackSeconds();
-    const current = duration > 0 ? Math.min(rawCurrent, duration) : rawCurrent;
+    const duration = vocalBuffer?.duration || 0;
+    const current =
+      startedRef.current && audioContextRef.current && startedAtRef.current !== null
+        ? Math.max(0, Math.min(audioContextRef.current.currentTime - startedAtRef.current, duration))
+        : 0;
+
     setPlayback({ current, duration });
   };
 
-  const startProgressLoop = () => {
-    if (progressTimerRef.current) clearInterval(progressTimerRef.current);
-    refreshPlayback();
-    progressTimerRef.current = setInterval(refreshPlayback, 200);
+  const syncSelectedGains = () => {
+    if (!audioContextRef.current || !startedRef.current) return;
+    const now = audioContextRef.current.currentTime;
+
+    Object.entries(audioStateRef.current.gains).forEach(([instrument, gainNode]) => {
+      const shouldPlay = selectedInstruments.includes(instrument);
+      const target = shouldPlay ? 1 : 0;
+      gainNode.gain.cancelScheduledValues(now);
+      gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+      gainNode.gain.linearRampToValueAtTime(target, now + 0.2);
+    });
   };
 
-  const ensureDurationLoaded = async () => {
-    if (durationLoadedRef.current) return;
+  const resetAudioSession = async () => {
+    stopProgressLoop();
 
-    try {
-      const duration = await new Promise((resolve, reject) => {
-        const audio = new Audio(trackFiles.vocal);
-        audio.preload = "metadata";
-        audio.onloadedmetadata = () => resolve(audio.duration || 0);
-        audio.onerror = () => reject(new Error("오디오 길이 정보를 읽지 못했습니다."));
-      });
+    Object.values(audioStateRef.current.sources).forEach((source) => {
+      try {
+        source.stop();
+      } catch {}
+    });
 
-      durationLoadedRef.current = true;
-      playbackDurationRef.current = duration;
-      setPlayback((prev) => ({ ...prev, duration: prev.duration || duration }));
-    } catch {}
-  };
+    audioStateRef.current = { buffers: {}, sources: {}, gains: {} };
+    startedRef.current = false;
+    startedAtRef.current = null;
+    setIsPlaying(false);
+    setPlayback({ current: 0, duration: 0 });
 
-  const syncPlaybackState = ({ startedAt, elapsedSec, serverNow }) => {
-    if (!startedAt) return;
-
-    setSongStarted(true);
-    serverStartedAtRef.current = startedAt;
-
-    if (serverNow && typeof elapsedSec === "number") {
-      const localElapsedMs = Date.now() - startedAt;
-      const serverElapsedMs = elapsedSec * 1000 + (Date.now() - serverNow);
-      serverDriftMsRef.current = serverElapsedMs - localElapsedMs;
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+      await audioContextRef.current.close().catch(() => {});
     }
-
-    ensureDurationLoaded();
-    startProgressLoop();
+    audioContextRef.current = null;
   };
 
   const initAudio = async () => {
+    const trackFiles = getTrackFiles();
+    if (!trackFiles.vocal) {
+      throw new Error("선택한 곡에 보컬 트랙이 없습니다.");
+    }
+
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
     } else if (audioContextRef.current.state === "suspended") {
       await audioContextRef.current.resume();
     }
 
-    const entries = Object.entries(trackFiles);
-    for (const [instrument, url] of entries) {
+    for (const [instrument, url] of Object.entries(trackFiles)) {
       if (audioStateRef.current.buffers[instrument]) continue;
       const response = await fetch(url);
       if (!response.ok) throw new Error(`${instrument} 파일 로드 실패: ${url}`);
@@ -181,248 +124,91 @@ export default function DevPage({ onGoBack }) {
       audioStateRef.current.buffers[instrument] = buffer;
     }
 
-    refreshPlayback();
-    playbackDurationRef.current = audioStateRef.current.buffers.vocal?.duration || playbackDurationRef.current;
-    addLog("모든 오디오 파일 로드 완료");
+    setPlayback((prev) => ({
+      ...prev,
+      duration: audioStateRef.current.buffers.vocal?.duration || prev.duration,
+    }));
+    addLog(`관리자 모드 오디오 로드 완료: ${selectedSong?.title || selectedSongId}`);
   };
 
-  const createTrackSource = (instrument, initialGain) => {
-    const ctx = audioContextRef.current;
-    const source = ctx.createBufferSource();
-    source.buffer = audioStateRef.current.buffers[instrument];
-    source.loop = false;
-
-    const gain = ctx.createGain();
-    gain.gain.value = initialGain;
-
-    source.connect(gain);
-    gain.connect(ctx.destination);
-
-    audioStateRef.current.sources[instrument] = source;
-    audioStateRef.current.gains[instrument] = gain;
-  };
-
-  const startAllTracks = () => {
+  const startPlayback = async () => {
     if (!audioContextRef.current) {
-      alert("먼저 오디오를 초기화해주세요.");
-      return;
+      throw new Error("먼저 오디오를 로드해주세요.");
     }
-    if (audioStartedRef.current) {
-      addLog("이미 곡이 시작되었습니다.");
+    if (startedRef.current) {
+      addLog("이미 재생 중입니다.");
       return;
     }
 
-    createTrackSource("vocal", 1);
-    createTrackSource("piano", 0);
-    createTrackSource("guitar", 0);
-    createTrackSource("drums", 0);
+    Object.keys(audioStateRef.current.buffers).forEach((instrument) => {
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = audioStateRef.current.buffers[instrument];
+      source.loop = false;
 
-    songStartAtRef.current = audioContextRef.current.currentTime + 0.15;
-    Object.values(audioStateRef.current.sources).forEach((source) => {
-      source.start(songStartAtRef.current);
+      const gain = audioContextRef.current.createGain();
+      gain.gain.value = selectedInstruments.includes(instrument) ? 1 : 0;
+
+      source.connect(gain);
+      gain.connect(audioContextRef.current.destination);
+
+      audioStateRef.current.sources[instrument] = source;
+      audioStateRef.current.gains[instrument] = gain;
     });
 
-    audioStartedRef.current = true;
-    setSongStarted(true);
-    startProgressLoop();
-    addLog("모든 트랙 동시 시작, 현재는 보컬만 재생");
+    startedAtRef.current = audioContextRef.current.currentTime + 0.12;
+    Object.values(audioStateRef.current.sources).forEach((source) => {
+      source.start(startedAtRef.current);
+    });
+
+    startedRef.current = true;
+    setIsPlaying(true);
+    refreshPlayback();
+    progressTimerRef.current = setInterval(refreshPlayback, 200);
+    addLog(`관리자 재생 시작: ${selectedSong?.title || selectedSongId}`);
   };
 
-  const setLocalInstrumentGain = (instrument, target) => {
-    if (!audioStartedRef.current || !audioContextRef.current) return;
-    const gainNode = audioStateRef.current.gains[instrument];
-    if (!gainNode) return;
-    const current = gainNode.gain.value;
-    if (target === 1 && current >= 1) return;
-    if (target === 0 && current <= 0) return;
+  const toggleInstrument = (instrument) => {
+    if (instrument === "vocal") return;
 
-    const t = audioContextRef.current.currentTime;
-    gainNode.gain.cancelScheduledValues(t);
-    gainNode.gain.setValueAtTime(current, t);
-    gainNode.gain.linearRampToValueAtTime(target, t + 0.25);
-  };
-
-  const activateLocalInstrument = (instrument) => {
-    setLocalInstrumentGain(instrument, 1);
-    addLog(`${instrument} 트랙 활성화`);
-  };
-
-  const deactivateLocalInstrument = (instrument) => {
-    setLocalInstrumentGain(instrument, 0);
-    addLog(`${instrument} 트랙 비활성화`);
+    setSelectedInstruments((prev) => {
+      const next = prev.includes(instrument)
+        ? prev.filter((item) => item !== instrument)
+        : [...prev, instrument];
+      return next.includes("vocal") ? next : ["vocal", ...next];
+    });
   };
 
   useEffect(() => {
-    ensureDurationLoaded();
+    if (!selectedSong && session.songs[0]?.id) {
+      setSelectedSongId(session.songs[0].id);
+    }
+  }, [selectedSong, session.songs]);
 
-    const socket = io(SOCKET_URL, { transports: ["websocket"] });
-    socketRef.current = socket;
+  useEffect(() => {
+    if (!availableTracks.length) {
+      setSelectedInstruments(["vocal"]);
+      return;
+    }
 
-    socket.on(SOCKET_EVENTS.ROOM_CREATED, ({ roomId: newRoomId, role: newRole, activeInstruments, activatedAt }) => {
-      setRoomId(newRoomId);
-      setRole(newRole);
-      setMyInstrument("vocal");
-      setActiveInstruments(activeInstruments || initialActive);
-      setActivatedAt(activatedAt || initialActivatedAt);
-      addLog(`방 생성 완료: ${newRoomId}`);
+    setSelectedInstruments((prev) => {
+      const next = prev.filter((instrument) => availableTracks.includes(instrument));
+      return next.includes("vocal") ? next : ["vocal", ...next];
     });
+  }, [availableTracks]);
 
-    socket.on(
-      SOCKET_EVENTS.JOINED_ROOM,
-      ({
-        roomId: joinedRoomId,
-        role: joinedRole,
-        instrument,
-        activeInstruments,
-        activatedAt,
-        started,
-        startedAt,
-      }) => {
-        setRoomId(joinedRoomId);
-        setRole(joinedRole);
-        setMyInstrument(instrument);
-        setActiveInstruments(activeInstruments || initialActive);
-        setActivatedAt(activatedAt || initialActivatedAt);
-        if (started) {
-          syncPlaybackState({ startedAt: startedAt || Date.now() });
-          addLog("이미 시작된 방입니다. 현재 상태만 확인 가능합니다.");
-        }
-        addLog(`방 참가 완료: ${joinedRoomId}, 악기: ${instrument}`);
-      }
-    );
+  useEffect(() => {
+    syncSelectedGains();
+  }, [selectedInstruments]);
 
-    socket.on(SOCKET_EVENTS.JOIN_ERROR, (message) => alert(message));
+  useEffect(() => {
+    resetAudioSession().catch(() => {});
+  }, [selectedSongId]);
 
-    socket.on(SOCKET_EVENTS.SONG_STARTED, ({ activeInstruments, activatedAt, startedAt }) => {
-      serverDriftMsRef.current = 0;
-      setActiveInstruments(activeInstruments || initialActive);
-      setActivatedAt(activatedAt || initialActivatedAt);
-      if (roleRef.current !== "host") addLog("보컬이 곡을 시작했습니다.");
-      syncPlaybackState({ startedAt: startedAt || Date.now() });
-    });
-
-    socket.on(SOCKET_EVENTS.INSTRUMENT_ACTIVATED, ({ instrument, activeInstruments, activatedAt }) => {
-      setActiveInstruments(activeInstruments || initialActive);
-      setActivatedAt(activatedAt || initialActivatedAt);
-      if (roleRef.current === "host") activateLocalInstrument(instrument);
-      addLog(`${instrument} 악기가 활성화되었습니다.`);
-    });
-
-    socket.on(SOCKET_EVENTS.INSTRUMENT_DEACTIVATED, ({ instrument, activeInstruments, activatedAt }) => {
-      setActiveInstruments(activeInstruments || initialActive);
-      setActivatedAt(activatedAt || initialActivatedAt);
-      if (roleRef.current === "host") deactivateLocalInstrument(instrument);
-      addLog(`${instrument} 악기가 비활성화되었습니다.`);
-    });
-
-    socket.on(SOCKET_EVENTS.USER_JOINED, ({ instrument }) => addLog(`${instrument} 참가자가 입장했습니다.`));
-    socket.on(SOCKET_EVENTS.USER_LEFT, ({ instrument }) => addLog(`${instrument} 참가자가 퇴장했습니다.`));
-
-    socket.on(SOCKET_EVENTS.ROOM_STATE, (room) => {
-      if (!room?.activeInstruments) return;
-      setActiveInstruments(room.activeInstruments);
-      setActivatedAt(room.activatedAt || initialActivatedAt);
-
-      if (room.started && room.startedAt) {
-        syncPlaybackState({ startedAt: room.startedAt });
-      }
-    });
-
-    socket.on(SOCKET_EVENTS.PLAYBACK_SYNC, ({ startedAt, elapsedSec, serverNow }) => {
-      syncPlaybackState({ startedAt, elapsedSec, serverNow });
-    });
-
-    socket.on(SOCKET_EVENTS.HOST_LEFT, () => {
-      alert("보컬 호스트가 방을 종료했습니다.");
-      window.location.reload();
-    });
-
+  useEffect(() => {
     return () => {
-      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
-      socket.disconnect();
+      resetAudioSession().catch(() => {});
     };
   }, []);
-
-  useEffect(() => {
-    const handleMotion = (event) => {
-      if (!motionEnabled || !isParticipant || !roomId || !myInstrument) return;
-      if (instrumentAlreadyTriggeredRef.current) return;
-
-      const now = Date.now();
-      if (now - lastTriggerAtRef.current < 1500) return;
-
-      const acc = event.accelerationIncludingGravity;
-      if (!acc) return;
-      const magnitude = Math.abs(acc.x || 0) + Math.abs(acc.y || 0) + Math.abs(acc.z || 0);
-      if (magnitude <= 35) return;
-
-      lastTriggerAtRef.current = now;
-      instrumentAlreadyTriggeredRef.current = true;
-      socketRef.current?.emit(SOCKET_EVENTS.ACTIVATE_INSTRUMENT, { roomId, instrument: myInstrument });
-      addLog(`모션 감지 성공 -> ${myInstrument} 활성화 요청`);
-    };
-
-    window.addEventListener("devicemotion", handleMotion);
-    return () => window.removeEventListener("devicemotion", handleMotion);
-  }, [isParticipant, motionEnabled, roomId, myInstrument]);
-
-  const onCreateRoom = () => socketRef.current?.emit(SOCKET_EVENTS.CREATE_ROOM);
-
-  const onJoinRoom = () => {
-    const normalized = roomInput.trim().toUpperCase();
-    if (!normalized) {
-      alert("방 코드를 입력해주세요.");
-      return;
-    }
-    setMyInstrument(selectedInstrument);
-    socketRef.current?.emit(SOCKET_EVENTS.JOIN_ROOM, {
-      roomId: normalized,
-      instrument: selectedInstrument,
-    });
-  };
-
-  const onStartSong = async () => {
-    try {
-      await initAudio();
-      startAllTracks();
-      setActivatedAt(initialActivatedAt);
-      setActiveInstruments({ vocal: true, piano: false, guitar: false, drums: false });
-      socketRef.current?.emit(SOCKET_EVENTS.START_SONG, { roomId });
-    } catch (error) {
-      alert(error.message);
-    }
-  };
-
-  const onInitAudio = async () => {
-    try {
-      await initAudio();
-    } catch (error) {
-      alert(error.message);
-    }
-  };
-
-  const onManualPlay = () => {
-    if (!isParticipant) return alert("참가자만 사용할 수 있습니다.");
-    if (!roomId || !myInstrument) return alert("먼저 방에 참가해주세요.");
-    socketRef.current?.emit(SOCKET_EVENTS.ACTIVATE_INSTRUMENT, { roomId, instrument: myInstrument });
-    addLog(`수동 연주 요청 전송 -> ${myInstrument}`);
-  };
-
-  const onEnableMotion = async () => {
-    try {
-      if (
-        typeof DeviceMotionEvent !== "undefined" &&
-        typeof DeviceMotionEvent.requestPermission === "function"
-      ) {
-        const result = await DeviceMotionEvent.requestPermission();
-        if (result !== "granted") throw new Error("모션 권한이 거부되었습니다.");
-      }
-      setMotionEnabled(true);
-      addLog("모션 감지가 활성화되었습니다.");
-    } catch (error) {
-      alert(error.message);
-    }
-  };
 
   const progress = playback.duration
     ? Math.min((playback.current / playback.duration) * 100, 100)
@@ -433,87 +219,121 @@ export default function DevPage({ onGoBack }) {
       <button className="secondary" onClick={onGoBack} style={{ marginBottom: "16px", width: "max-content" }}>
         ← 메인으로 돌아가기
       </button>
+
       <section className="card">
-        <h1>Motion Band (React)</h1>
-        <p className="small">서버: {SOCKET_URL}</p>
-        <p>{roomId ? `방 코드: ${roomId}` : "방 코드: 없음"}</p>
-        <p>{roleText}</p>
-        <div className="badgeList">
-          {Object.entries(activeInstruments).map(([key, value]) => (
-            <span key={key} className={`badge ${value ? "on" : ""}`}>
-              {instrumentLabels[key]} {value ? "ON" : "OFF"}
-            </span>
-          ))}
-        </div>
+        <h1>Admin Mode</h1>
+        <p className="small">사용자 없이도 곡 선택, 악기 다중 선택, 즉시 재생 테스트를 할 수 있습니다.</p>
+        <p>{selectedSong ? `선택된 곡: ${selectedSong.title}` : "선택된 곡: 없음"}</p>
+        <p>{isPlaying ? "상태: 재생 중" : "상태: 대기 중"}</p>
+      </section>
+
+      <section className="card">
+        <h2>노래 선택</h2>
+        {session.songsLoading ? <p className="small">곡 목록을 불러오는 중입니다.</p> : null}
+        {session.songsError ? (
+          <>
+            <p className="small">{session.songsError}</p>
+            <button className="secondary" onClick={() => session.fetchSongs()}>
+              다시 불러오기
+            </button>
+          </>
+        ) : null}
+        {!session.songsLoading && !session.songsError ? (
+          <div className="song-selector">
+            {session.songs.map((song) => (
+              <button
+                key={song.id}
+                type="button"
+                className={`song-card ${selectedSongId === song.id ? "selected" : ""}`}
+                onClick={() => setSelectedSongId(song.id)}
+              >
+                <span className="song-card-label">Song</span>
+                <strong>{song.title}</strong>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section className="card">
         <h2>재생 현황</h2>
         <p>
           {formatTime(playback.current)} / {formatTime(playback.duration)}
-          {songStarted ? "" : " (미시작)"}
+          {isPlaying ? "" : " (미재생)"}
         </p>
         <div className="progress">
           <div className="progressBar" style={{ width: `${progress}%` }} />
         </div>
-        <div className="parts">
-          {Object.keys(instrumentLabels).map((instrument) => (
-            <div key={instrument} className="partItem">
-              <strong>{instrumentLabels[instrument]}</strong>
-              <span>{activeInstruments[instrument] ? "재생 중" : "대기 중"}</span>
-              <span className="small">
-                {activatedAt[instrument] === null
-                  ? "아직 합류하지 않음"
-                  : `${formatTime(activatedAt[instrument])} 시점부터 활성화`}
-              </span>
-            </div>
-          ))}
+      </section>
+
+      <section className="card">
+        <h2>관리자 악기 선택</h2>
+        <p className="small">보컬은 항상 켜져 있고, 나머지 악기는 여러 개를 동시에 선택할 수 있습니다.</p>
+        <div className="badgeList">
+          {availableTracks.map((instrument) => {
+            const selected = selectedInstruments.includes(instrument);
+            const isFixed = instrument === "vocal";
+
+            return (
+              <button
+                key={instrument}
+                type="button"
+                className={`admin-toggle ${selected ? "selected" : ""}`}
+                onClick={() => toggleInstrument(instrument)}
+                disabled={isFixed}
+              >
+                {instrumentLabels[instrument]}
+                {selected ? " ON" : " OFF"}
+              </button>
+            );
+          })}
         </div>
       </section>
 
       <section className="card">
-        <h2>입장</h2>
-        <button onClick={onCreateRoom}>방 만들기 (보컬)</button>
-        <div className="row">
-          <input
-            value={roomInput}
-            onChange={(e) => setRoomInput(e.target.value)}
-            placeholder="방 코드 입력"
-          />
-          <select value={selectedInstrument} onChange={(e) => setSelectedInstrument(e.target.value)}>
-            <option value="piano">피아노</option>
-            <option value="guitar">기타</option>
-            <option value="drums">드럼</option>
-          </select>
+        <h2>관리자 제어</h2>
+        <div className="badgeList">
+          <button
+            className="secondary"
+            onClick={async () => {
+              try {
+                setIsLoading(true);
+                await initAudio();
+              } catch (error) {
+                alert(error.message);
+              } finally {
+                setIsLoading(false);
+              }
+            }}
+            disabled={!selectedSongId || isLoading}
+          >
+            {isLoading ? "로딩 중..." : "오디오 로드"}
+          </button>
+          <button
+            className="success"
+            onClick={async () => {
+              try {
+                await initAudio();
+                await startPlayback();
+              } catch (error) {
+                alert(error.message);
+              }
+            }}
+            disabled={!selectedSongId}
+          >
+            재생 시작
+          </button>
+          <button
+            className="warning"
+            onClick={async () => {
+              await resetAudioSession();
+              addLog("관리자 재생 세션을 초기화했습니다.");
+            }}
+          >
+            정지 및 초기화
+          </button>
         </div>
-        <button className="secondary" onClick={onJoinRoom}>
-          방 참가 (연주자)
-        </button>
       </section>
-
-      {isHost && (
-        <section className="card">
-          <h2>보컬 패널</h2>
-          <button className="secondary" onClick={onInitAudio}>
-            오디오 파일 미리 로드
-          </button>
-          <button className="success" onClick={onStartSong} disabled={!roomId}>
-            곡 시작
-          </button>
-        </section>
-      )}
-
-      {isParticipant && (
-        <section className="card">
-          <h2>연주자 패널</h2>
-          <button className="warning" onClick={onManualPlay}>
-            수동으로 연주 요청 보내기
-          </button>
-          <button className="success" onClick={onEnableMotion}>
-            핸드폰 모션 감지 활성화
-          </button>
-        </section>
-      )}
 
       <section className="card">
         <h2>로그</h2>

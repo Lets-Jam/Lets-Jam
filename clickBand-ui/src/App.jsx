@@ -23,7 +23,7 @@ export default function App() {
   }, [jamSession.inRoom, page]);
 
   if (currentPage === "dev") {
-    return <DevPage onGoBack={handleGoToMainPage} />;
+    return <DevPage onGoBack={handleGoToMainPage} session={jamSession} />;
   }
 
   if (currentPage === "jam") {

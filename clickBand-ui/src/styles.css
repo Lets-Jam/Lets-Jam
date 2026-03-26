@@ -52,6 +52,26 @@ body {
   border: 1px solid #4d5d89;
 }
 
+.admin-toggle {
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 14px;
+  border: 1px solid #4d5d89;
+  background: #10172a;
+  color: #f3f6ff;
+  cursor: pointer;
+}
+
+.admin-toggle.selected {
+  border-color: #39d98a;
+  color: #39d98a;
+}
+
+.admin-toggle:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
 .badge.on {
   border-color: #39d98a;
   color: #39d98a;
@@ -482,7 +502,8 @@ body {
 }
 
 .jam-control-card,
-.jam-log-card {
+.jam-log-card,
+.jam-qr-card {
   padding: 28px;
 }
 
@@ -491,6 +512,39 @@ body {
   justify-content: space-between;
   gap: 24px;
   align-items: center;
+}
+
+.jam-qr-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(8, 12, 20, 0.76);
+  backdrop-filter: blur(20px);
+  border-radius: 28px;
+}
+
+.jam-join-link {
+  display: inline-block;
+  margin-top: 14px;
+  color: #7ef0c8;
+  word-break: break-all;
+}
+
+.jam-qr-box {
+  min-width: 220px;
+  width: 220px;
+  height: 220px;
+  border-radius: 24px;
+  background: white;
+  padding: 14px;
+}
+
+.jam-qr-box img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .jam-control-card p:last-child {

@@ -76,6 +76,7 @@ export function useJamSession() {
   const serverDriftMsRef = useRef(0);
   const durationLoadedRef = useRef(false);
   const playbackDurationRef = useRef(0);
+  const autoJoinAttemptedRef = useRef(false);
 
   const [roomId, setRoomId] = useState("");
   const [role, setRole] = useState(null);
@@ -95,10 +96,21 @@ export function useJamSession() {
   const [selectedSongId, setSelectedSongId] = useState("");
   const [selectedSongTitle, setSelectedSongTitle] = useState("");
   const [availableInstruments, setAvailableInstruments] = useState([]);
+  const [pendingRoomCode, setPendingRoomCode] = useState("");
   const selectedSong = useMemo(
     () => songs.find((song) => song.id === selectedSongId) || null,
     [songs, selectedSongId]
   );
+  const joinUrl = useMemo(() => {
+    if (typeof window === "undefined" || !roomId) return "";
+    const url = new URL(window.location.href);
+    url.searchParams.set("room", roomId);
+    return url.toString();
+  }, [roomId]);
+  const qrCodeImageUrl = useMemo(() => {
+    if (!joinUrl) return "";
+    return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(joinUrl)}`;
+  }, [joinUrl]);
 
   const addLog = (message) => {
     const time = new Date().toLocaleTimeString();
@@ -143,8 +155,11 @@ export function useJamSession() {
     setPlayback({ current: 0, duration: 0 });
     setIsBusy(false);
     setIsChangingInstrument(false);
+    setSongsError("");
     setSelectedSongTitle("");
     setAvailableInstruments([]);
+    setPendingRoomCode("");
+    autoJoinAttemptedRef.current = false;
   };
 
   const getTrackFiles = () => {
@@ -160,6 +175,19 @@ export function useJamSession() {
     setSongsLoading(true);
     setSongsError("");
     socketRef.current?.emit(SOCKET_EVENTS.GET_SONGS);
+  };
+
+  const syncRoomQuery = (nextRoomCode) => {
+    if (typeof window === "undefined") return;
+
+    const url = new URL(window.location.href);
+    if (nextRoomCode) {
+      url.searchParams.set("room", nextRoomCode);
+    } else {
+      url.searchParams.delete("room");
+    }
+
+    window.history.replaceState({}, "", url.toString());
   };
 
   const getCurrentPlaybackSeconds = () => {
@@ -357,6 +385,7 @@ export function useJamSession() {
         setAvailableInstruments(availableInstruments || []);
         setActiveInstruments(activeInstruments || initialActive);
         setActivatedAt(activatedAt || initialActivatedAt);
+        syncRoomQuery(newRoomId);
         addLog(`방 생성 완료: ${newRoomId}`);
       }
     );
@@ -384,6 +413,7 @@ export function useJamSession() {
         setAvailableInstruments(availableInstruments || []);
         setActiveInstruments(activeInstruments || initialActive);
         setActivatedAt(activatedAt || initialActivatedAt);
+        syncRoomQuery(joinedRoomId);
         if (started) {
           syncPlaybackState({ startedAt: startedAt || Date.now() });
           addLog("이미 시작된 방입니다. 현재 상태만 확인 가능합니다.");
@@ -492,6 +522,15 @@ export function useJamSession() {
   }, [myInstrument]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const roomFromQuery = new URL(window.location.href).searchParams.get("room");
+    if (roomFromQuery) {
+      setPendingRoomCode(roomFromQuery.toUpperCase());
+    }
+  }, []);
+
+  useEffect(() => {
     connectSocket();
 
     return () => {
@@ -502,6 +541,18 @@ export function useJamSession() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!connectionReady || !pendingRoomCode || roomId || isBusy || autoJoinAttemptedRef.current) {
+      return;
+    }
+
+    autoJoinAttemptedRef.current = true;
+    setIsBusy(true);
+    socketRef.current?.emit(SOCKET_EVENTS.JOIN_ROOM, {
+      roomId: pendingRoomCode,
+    });
+  }, [connectionReady, pendingRoomCode, roomId, isBusy]);
 
   useEffect(() => {
     const handleMotion = (event) => {
@@ -557,6 +608,7 @@ export function useJamSession() {
     }
 
     setIsBusy(true);
+    setPendingRoomCode(normalized);
     socketRef.current?.emit(SOCKET_EVENTS.JOIN_ROOM, {
       roomId: normalized,
     });
@@ -642,6 +694,7 @@ export function useJamSession() {
       socketRef.current.disconnect();
     }
     setConnectionReady(false);
+    syncRoomQuery("");
     resetLocalState();
     connectSocket();
   };
@@ -660,6 +713,9 @@ export function useJamSession() {
     selectedSongId,
     selectedSongTitle,
     availableInstruments,
+    pendingRoomCode,
+    joinUrl,
+    qrCodeImageUrl,
     roomId,
     role,
     roleText,
