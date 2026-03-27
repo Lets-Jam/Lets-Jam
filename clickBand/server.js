@@ -10,7 +10,9 @@ const defaultSslKeyPath = path.resolve(__dirname, "../certs/localhost-key.pem");
 const defaultSslCertPath = path.resolve(__dirname, "../certs/localhost.pem");
 const sslKeyPath = process.env.SSL_KEY_PATH || defaultSslKeyPath;
 const sslCertPath = process.env.SSL_CERT_PATH || defaultSslCertPath;
+const httpsEnabled = process.env.ENABLE_HTTPS === "true";
 const useHttps =
+  httpsEnabled &&
   Boolean(sslKeyPath) &&
   Boolean(sslCertPath) &&
   fs.existsSync(sslKeyPath) &&
