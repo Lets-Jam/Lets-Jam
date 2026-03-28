@@ -76,6 +76,8 @@ export default function JamPage({ onLeave, session }) {
   const filteredHostSongs = session.songs.filter((song) =>
     song.title.toLowerCase().includes(session.hostSongSearch.trim().toLowerCase())
   );
+  const ambientPulse = session.songStarted ? Math.min(0.1 + session.musicPulse * 0.46, 0.44) : 0;
+  const crowdAccentCount = Math.min(session.participantCount || 0, 3);
 
   const handleCopyRoomCode = async () => {
     if (!session.roomId) return;
@@ -90,7 +92,18 @@ export default function JamPage({ onLeave, session }) {
   };
 
   return (
-    <div className="jam-room-page">
+    <div
+      className={`jam-room-page ${session.songStarted ? "is-playing" : ""}`}
+      style={{
+        "--jam-pulse": ambientPulse.toFixed(3),
+      }}
+    >
+      <div className="jam-crowd-accents" aria-hidden="true">
+        <span className={`jam-crowd-accent jam-crowd-accent-left ${crowdAccentCount >= 1 ? "active" : ""}`} />
+        <span className={`jam-crowd-accent jam-crowd-accent-bottom ${crowdAccentCount >= 2 ? "active" : ""}`} />
+        <span className={`jam-crowd-accent jam-crowd-accent-right ${crowdAccentCount >= 3 ? "active" : ""}`} />
+      </div>
+
       <button className="jam-back-button" type="button" onClick={onLeave} aria-label="뒤로 가기">
         <BackIcon />
       </button>

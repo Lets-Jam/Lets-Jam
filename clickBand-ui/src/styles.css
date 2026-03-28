@@ -779,15 +779,75 @@ body {
 }
 
 .jam-room-page {
+  --jam-pulse: 0;
   min-height: 100vh;
+  position: relative;
+  overflow: hidden;
   background:
-    radial-gradient(circle at top left, rgba(22, 94, 126, 0.28), transparent 28%),
-    radial-gradient(circle at bottom, rgba(6, 44, 63, 0.42), transparent 30%),
-    linear-gradient(180deg, #082c3b 0%, #031925 100%);
+    radial-gradient(circle at top left, rgba(24, 102, 138, calc(0.12 + var(--jam-pulse) * 0.28)), transparent 28%),
+    radial-gradient(circle at 72% 22%, rgba(114, 219, 255, calc(0.02 + var(--jam-pulse) * 0.18)), transparent 24%),
+    radial-gradient(circle at bottom, rgba(4, 31, 46, calc(0.36 + var(--jam-pulse) * 0.22)), transparent 34%),
+    linear-gradient(
+      180deg,
+      hsl(198 calc(48% + var(--jam-pulse) * 8.5%) calc(8.2% + var(--jam-pulse) * 4.8%)) 0%,
+      hsl(204 calc(57% + var(--jam-pulse) * 10%) calc(4.2% + var(--jam-pulse) * 3.6%)) 100%
+    );
   color: #f4fbff;
+  transition: background 220ms ease-out;
+}
+
+.jam-crowd-accents {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.jam-crowd-accent {
+  position: absolute;
+  opacity: 0;
+  filter: blur(38px);
+  transition: opacity 360ms ease, transform 360ms ease;
+  transform: scale(0.96);
+}
+
+.jam-crowd-accent.active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.jam-crowd-accent-left {
+  left: -60px;
+  bottom: 18%;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(84, 255, 146, 0.14) 0%, rgba(84, 255, 146, 0.06) 38%, transparent 72%);
+}
+
+.jam-crowd-accent-bottom {
+  left: 50%;
+  bottom: -84px;
+  width: 300px;
+  height: 180px;
+  transform: translateX(-50%) scale(0.96);
+  background: radial-gradient(circle, rgba(255, 214, 87, 0.13) 0%, rgba(255, 214, 87, 0.05) 40%, transparent 74%);
+}
+
+.jam-crowd-accent-bottom.active {
+  transform: translateX(-50%) scale(1);
+}
+
+.jam-crowd-accent-right {
+  right: -54px;
+  bottom: 20%;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(255, 96, 96, 0.14) 0%, rgba(255, 96, 96, 0.05) 42%, transparent 74%);
 }
 
 .jam-room-shell-redesign {
+  position: relative;
+  z-index: 1;
   max-width: 1220px;
   padding: 64px 32px 72px;
   gap: 22px;
@@ -818,9 +878,12 @@ body {
 .jam-panel {
   border-radius: 30px;
   border: 1px solid rgba(77, 154, 189, 0.58);
-  background: rgba(5, 35, 49, 0.72);
-  box-shadow: inset 0 0 0 1px rgba(6, 69, 93, 0.24);
+  background: rgba(3, 24, 35, calc(0.85 - var(--jam-pulse) * 0.03));
+  box-shadow:
+    inset 0 0 0 1px rgba(6, 69, 93, 0.24),
+    0 0 calc(20px + var(--jam-pulse) * 12px) rgba(64, 184, 229, calc(var(--jam-pulse) * 0.05));
   backdrop-filter: blur(18px);
+  transition: background 220ms ease-out, box-shadow 220ms ease-out, border-color 220ms ease-out;
 }
 
 .jam-top-panel {
@@ -1154,11 +1217,13 @@ body {
   padding: 18px 22px;
   border-radius: 24px;
   border: 1px solid rgba(72, 137, 170, 0.65);
-  background: rgba(5, 31, 44, 0.5);
+  background: rgba(4, 26, 38, calc(0.72 - var(--jam-pulse) * 0.04));
   min-height: 104px;
   display: grid;
   align-content: center;
   gap: 8px;
+  box-shadow: 0 0 calc(var(--jam-pulse) * 14px) rgba(118, 226, 255, calc(var(--jam-pulse) * 0.06));
+  transition: background 220ms ease-out, box-shadow 220ms ease-out;
 }
 
 .jam-lyric-current,

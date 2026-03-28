@@ -62,6 +62,8 @@ function createDefaultAudioState() {
     buffers: {},
     sources: {},
     gains: {},
+    analyser: null,
+    analyserData: null,
   };
 }
 
@@ -96,6 +98,7 @@ export function useJamSession() {
   const motionStopTimerRef = useRef(null);
   const previousSongIdRef = useRef("");
   const pendingActivateInstrumentRef = useRef(null);
+  const audioLevelFrameRef = useRef(null);
 
   const [roomId, setRoomId] = useState("");
   const [role, setRole] = useState(null);
@@ -120,6 +123,8 @@ export function useJamSession() {
   const [hostSongSearch, setHostSongSearch] = useState("");
   const [vocalMode, setVocalMode] = useState("track");
   const [liveVocalEnabled, setLiveVocalEnabled] = useState(false);
+  const [musicPulse, setMusicPulse] = useState(0);
+  const [participantCount, setParticipantCount] = useState(0);
   const selectedSong = useMemo(
     () => songs.find((song) => song.id === selectedSongId) || null,
     [songs, selectedSongId]
@@ -164,7 +169,59 @@ export function useJamSession() {
     setLiveVocalEnabled(false);
   };
 
+  const stopAudioLevelLoop = () => {
+    if (audioLevelFrameRef.current) {
+      window.cancelAnimationFrame(audioLevelFrameRef.current);
+      audioLevelFrameRef.current = null;
+    }
+    setMusicPulse(0);
+  };
+
+  const ensureAudioAnalyser = () => {
+    const ctx = audioContextRef.current;
+    if (!ctx) return null;
+
+    if (!audioStateRef.current.analyser) {
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.82;
+      audioStateRef.current.analyser = analyser;
+      audioStateRef.current.analyserData = new Uint8Array(analyser.frequencyBinCount);
+    }
+
+    return audioStateRef.current.analyser;
+  };
+
+  const startAudioLevelLoop = () => {
+    const tick = () => {
+      const analyser = audioStateRef.current.analyser;
+      const data = audioStateRef.current.analyserData;
+
+      if (!analyser || !data || (!audioStartedRef.current && !liveVocalEnabled)) {
+        setMusicPulse(0);
+        audioLevelFrameRef.current = window.requestAnimationFrame(tick);
+        return;
+      }
+
+      analyser.getByteFrequencyData(data);
+      let sum = 0;
+      for (let index = 0; index < data.length; index += 1) {
+        sum += data[index];
+      }
+
+      const average = data.length ? sum / data.length : 0;
+      const normalized = Math.min(Math.max(average / 170, 0), 1);
+      const easedPulse = Number((normalized ** 1.9).toFixed(3));
+      setMusicPulse((prev) => prev + (easedPulse - prev) * 0.18);
+      audioLevelFrameRef.current = window.requestAnimationFrame(tick);
+    };
+
+    if (audioLevelFrameRef.current) return;
+    audioLevelFrameRef.current = window.requestAnimationFrame(tick);
+  };
+
   const stopLocalPlayback = async () => {
+    stopAudioLevelLoop();
     if (progressTimerRef.current) {
       clearInterval(progressTimerRef.current);
       progressTimerRef.current = null;
@@ -196,6 +253,7 @@ export function useJamSession() {
   };
 
   const resetLocalState = () => {
+    stopAudioLevelLoop();
     if (progressTimerRef.current) {
       clearInterval(progressTimerRef.current);
       progressTimerRef.current = null;
@@ -241,6 +299,7 @@ export function useJamSession() {
     setHostSongSearch("");
     setVocalMode("track");
     setLiveVocalEnabled(false);
+    setParticipantCount(0);
     autoJoinAttemptedRef.current = false;
     previousSongIdRef.current = "";
     stopLiveVocal();
@@ -375,6 +434,7 @@ export function useJamSession() {
     playbackDurationRef.current =
       audioStateRef.current.buffers.vocal?.duration || playbackDurationRef.current;
     addLog("모든 오디오 파일 로드 완료");
+    ensureAudioAnalyser();
   };
 
   const createTrackSource = (instrument, initialGain) => {
@@ -388,6 +448,10 @@ export function useJamSession() {
 
     source.connect(gain);
     gain.connect(ctx.destination);
+    const analyser = ensureAudioAnalyser();
+    if (analyser) {
+      gain.connect(analyser);
+    }
 
     audioStateRef.current.sources[instrument] = source;
     audioStateRef.current.gains[instrument] = gain;
@@ -422,6 +486,7 @@ export function useJamSession() {
     audioStartedRef.current = true;
     setSongStarted(true);
     startProgressLoop();
+    startAudioLevelLoop();
     addLog(
       vocalMode === "live"
         ? "반주 트랙 시작, 보컬은 직접 부르기 모드"
@@ -480,11 +545,16 @@ export function useJamSession() {
 
       source.connect(gain);
       gain.connect(audioContextRef.current.destination);
+      const analyser = ensureAudioAnalyser();
+      if (analyser) {
+        gain.connect(analyser);
+      }
 
       micStreamRef.current = stream;
       micSourceRef.current = source;
       micGainRef.current = gain;
       setLiveVocalEnabled(true);
+      startAudioLevelLoop();
       addLog("직접 부르기 모니터링 시작");
     } catch (error) {
       stopLiveVocal();
@@ -559,6 +629,7 @@ export function useJamSession() {
         setSelectedSongTitle(songTitle || "");
         setAvailableInstruments(availableInstruments || []);
         previousSongIdRef.current = songId || "";
+        setParticipantCount(0);
         setActiveInstruments(activeInstruments || initialActive);
         setActivatedAt(activatedAt || initialActivatedAt);
         syncRoomQuery(newRoomId);
@@ -588,6 +659,7 @@ export function useJamSession() {
         setSelectedSongTitle(songTitle || "");
         setAvailableInstruments(availableInstruments || []);
         previousSongIdRef.current = songId || "";
+        setParticipantCount(0);
         setActiveInstruments(activeInstruments || initialActive);
         setActivatedAt(activatedAt || initialActivatedAt);
         syncRoomQuery(joinedRoomId);
@@ -667,6 +739,9 @@ export function useJamSession() {
 
     socket.on(SOCKET_EVENTS.ROOM_STATE, (room) => {
       if (!room?.activeInstruments) return;
+      const totalParticipants = Object.keys(room.participants || {}).length;
+      const hostParticipantCount = room.host && room.participants?.[room.host] ? 1 : 0;
+      setParticipantCount(Math.max(0, totalParticipants - hostParticipantCount));
       const nextSongId = room.songId || "";
       const songChanged = previousSongIdRef.current && previousSongIdRef.current !== nextSongId;
 
@@ -764,6 +839,7 @@ export function useJamSession() {
     connectSocket();
 
     return () => {
+      stopAudioLevelLoop();
       if (progressTimerRef.current) clearInterval(progressTimerRef.current);
       if (socketRef.current) socketRef.current.disconnect();
       if (audioContextRef.current && audioContextRef.current.state !== "closed") {
@@ -1030,6 +1106,8 @@ export function useJamSession() {
     motionThreshold,
     songStarted,
     playback,
+    musicPulse,
+    participantCount,
     isBusy,
     isChangingInstrument,
     connectionReady,
