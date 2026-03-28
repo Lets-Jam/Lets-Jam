@@ -36,7 +36,7 @@ const MainPage = ({ onGoToDevPage, session }) => {
       } while (nextIndex === lastIndex); // 같은 문구가 연속으로 나오지 않도록 처리
       lastIndex = nextIndex;
       setFunnyMessage(FUNNY_STATUS_MESSAGES[nextIndex]);
-    }, 3000);
+    }, 5000);
     
     return () => clearInterval(interval);
   }, []);
@@ -118,10 +118,8 @@ const MainPage = ({ onGoToDevPage, session }) => {
           </div>
 
           <div className="connection-status">
-            <p key={session.pendingRoomCode ? "pending" : funnyMessage} className="connection-status-text">
-              {session.pendingRoomCode
-                ? `${session.pendingRoomCode} 방으로 자동 입장 준비 중`
-                : funnyMessage}
+            <p key={funnyMessage} className="connection-status-text">
+              {funnyMessage}
             </p>
           </div>
         </main>

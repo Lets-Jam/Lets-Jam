@@ -436,6 +436,26 @@ body {
   color: #8ca8c8;
 }
 
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.record-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #ff4757;
+  border-radius: 50%;
+  animation: pulseRecord 1.5s infinite cubic-bezier(0.66, 0, 0, 1);
+}
+
+@keyframes pulseRecord {
+  0% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7); opacity: 1; }
+  70% { box-shadow: 0 0 0 6px rgba(255, 71, 87, 0); opacity: 0.6; }
+  100% { box-shadow: 0 0 0 0 rgba(255, 71, 87, 0); opacity: 1; }
+}
+
 .jam-subtitle {
   margin: 12px 0 0;
   color: rgba(255, 255, 255, 0.78);
