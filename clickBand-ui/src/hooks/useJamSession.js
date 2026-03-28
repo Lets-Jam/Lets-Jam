@@ -86,6 +86,9 @@ export function useJamSession() {
   const socketRef = useRef(null);
   const audioContextRef = useRef(null);
   const audioStateRef = useRef(createDefaultAudioState());
+  const micStreamRef = useRef(null);
+  const micSourceRef = useRef(null);
+  const micGainRef = useRef(null);
   const progressTimerRef = useRef(null);
   const roleRef = useRef(null);
   const myInstrumentRef = useRef(null);
@@ -122,6 +125,8 @@ export function useJamSession() {
   const [availableInstruments, setAvailableInstruments] = useState([]);
   const [pendingRoomCode, setPendingRoomCode] = useState("");
   const [hostSongSearch, setHostSongSearch] = useState("");
+  const [vocalMode, setVocalMode] = useState("track");
+  const [liveVocalEnabled, setLiveVocalEnabled] = useState(false);
   const selectedSong = useMemo(
     () => songs.find((song) => song.id === selectedSongId) || null,
     [songs, selectedSongId]
@@ -140,6 +145,29 @@ export function useJamSession() {
   const addLog = (message) => {
     const time = new Date().toLocaleTimeString();
     setLogs((prev) => [`[${time}] ${message}`, ...prev].slice(0, 200));
+  };
+
+  const stopLiveVocal = () => {
+    if (micSourceRef.current) {
+      try {
+        micSourceRef.current.disconnect();
+      } catch {}
+      micSourceRef.current = null;
+    }
+
+    if (micGainRef.current) {
+      try {
+        micGainRef.current.disconnect();
+      } catch {}
+      micGainRef.current = null;
+    }
+
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach((track) => track.stop());
+      micStreamRef.current = null;
+    }
+
+    setLiveVocalEnabled(false);
   };
 
   const stopLocalPlayback = async () => {
@@ -165,6 +193,7 @@ export function useJamSession() {
     lastTriggerAtRef.current = 0;
     setSongStarted(false);
     setPlayback({ current: 0, duration: 0 });
+    stopLiveVocal();
 
     if (audioContextRef.current && audioContextRef.current.state !== "closed") {
       await audioContextRef.current.close().catch(() => {});
@@ -216,8 +245,11 @@ export function useJamSession() {
     setAvailableInstruments([]);
     setPendingRoomCode("");
     setHostSongSearch("");
+    setVocalMode("track");
+    setLiveVocalEnabled(false);
     autoJoinAttemptedRef.current = false;
     previousSongIdRef.current = "";
+    stopLiveVocal();
   };
 
   const getTrackFiles = () => {
@@ -362,6 +394,9 @@ export function useJamSession() {
     }
 
     Object.keys(audioStateRef.current.buffers).forEach((instrument) => {
+      if (instrument === "vocal" && vocalMode === "live") {
+        return;
+      }
       createTrackSource(instrument, instrument === "vocal" ? 1 : 0);
     });
 
@@ -373,7 +408,65 @@ export function useJamSession() {
     audioStartedRef.current = true;
     setSongStarted(true);
     startProgressLoop();
-    addLog("모든 트랙 동시 시작, 현재는 보컬만 재생");
+    addLog(
+      vocalMode === "live"
+        ? "반주 트랙 시작, 보컬은 직접 부르기 모드"
+        : "모든 트랙 동시 시작, 현재는 보컬만 재생"
+    );
+  };
+
+  const toggleLiveVocal = async () => {
+    if (roleRef.current !== "host") {
+      alert("보컬 호스트만 사용할 수 있습니다.");
+      return;
+    }
+
+    if (vocalMode !== "live") {
+      alert("먼저 보컬 모드를 '직접 부르기'로 바꿔주세요.");
+      return;
+    }
+
+    if (liveVocalEnabled) {
+      stopLiveVocal();
+      addLog("직접 부르기 모니터링 종료");
+      return;
+    }
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("이 브라우저에서는 마이크를 지원하지 않습니다.");
+      }
+
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      } else if (audioContextRef.current.state === "suspended") {
+        await audioContextRef.current.resume();
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      const gain = audioContextRef.current.createGain();
+      gain.gain.value = 1;
+
+      source.connect(gain);
+      gain.connect(audioContextRef.current.destination);
+
+      micStreamRef.current = stream;
+      micSourceRef.current = source;
+      micGainRef.current = gain;
+      setLiveVocalEnabled(true);
+      addLog("직접 부르기 모니터링 시작");
+    } catch (error) {
+      stopLiveVocal();
+      alert(error.message || "마이크를 사용할 수 없습니다.");
+    }
   };
 
   const setLocalInstrumentGain = (instrument, target) => {
@@ -600,6 +693,12 @@ export function useJamSession() {
   }, [myInstrument]);
 
   useEffect(() => {
+    if (vocalMode !== "live") {
+      stopLiveVocal();
+    }
+  }, [vocalMode]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
 
     const roomFromQuery = new URL(window.location.href).searchParams.get("room");
@@ -799,8 +898,16 @@ export function useJamSession() {
   const restartSong = async () => {
     if (role !== "host" || !roomId) return;
 
-    await stopLocalPlayback();
-    socketRef.current?.emit(SOCKET_EVENTS.RESTART_SONG, { roomId });
+    try {
+      await stopLocalPlayback();
+      await initAudio();
+      startAllTracks();
+      setActivatedAt((prev) => ({ ...prev, vocal: 0 }));
+      setActiveInstruments((prev) => ({ ...prev, vocal: true }));
+      socketRef.current?.emit(SOCKET_EVENTS.RESTART_SONG, { roomId });
+    } catch (error) {
+      alert(error.message);
+    }
   };
 
   const resetSession = () => {
@@ -830,6 +937,8 @@ export function useJamSession() {
     availableInstruments,
     pendingRoomCode,
     hostSongSearch,
+    vocalMode,
+    liveVocalEnabled,
     joinUrl,
     qrCodeImageUrl,
     roomId,
@@ -851,11 +960,13 @@ export function useJamSession() {
     inRoom: Boolean(role && roomId),
     setSelectedSongId,
     setHostSongSearch,
+    setVocalMode,
     fetchSongs,
     createRoom,
     joinRoom,
     startSong,
     preloadAudio,
+    toggleLiveVocal,
     manualPlay,
     changeInstrument,
     enableMotion,

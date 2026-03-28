@@ -1,14 +1,36 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { formatTime, getInstrumentLabel } from "../hooks/useJamSession";
+import { getActiveLyricIndex, getTimedLyrics } from "../lib/lyrics";
 
 export default function JamPage({ onLeave, session }) {
   const progress = session.playback.duration
     ? Math.min((session.playback.current / session.playback.duration) * 100, 100)
     : 0;
+  const lyricsBodyRef = useRef(null);
+  const activeLyricRef = useRef(null);
+  const lyrics = useMemo(() => getTimedLyrics(session.selectedSongId), [session.selectedSongId]);
+  const activeLyricIndex = useMemo(
+    () => getActiveLyricIndex(lyrics, session.playback.current),
+    [lyrics, session.playback.current]
+  );
   const visibleInstruments = ["vocal", ...session.availableInstruments];
   const filteredHostSongs = session.songs.filter((song) =>
     song.title.toLowerCase().includes(session.hostSongSearch.trim().toLowerCase())
   );
+
+  useEffect(() => {
+    const container = lyricsBodyRef.current;
+    const activeLine = activeLyricRef.current;
+    if (!container || !activeLine || activeLyricIndex < 0) return;
+
+    const targetScrollTop =
+      activeLine.offsetTop - container.clientHeight / 2 + activeLine.clientHeight / 2;
+
+    container.scrollTo({
+      top: Math.max(0, targetScrollTop),
+      behavior: "smooth",
+    });
+  }, [activeLyricIndex]);
 
   return (
     <div className="jam-room-page">
@@ -44,6 +66,38 @@ export default function JamPage({ onLeave, session }) {
           </div>
         </section>
 
+        <section className="jam-lyrics-card">
+          <div className="jam-lyrics-header">
+            <div>
+              <p className="jam-section-label">Lyrics</p>
+              <h2>노래 가사</h2>
+            </div>
+            <span>{session.selectedSongTitle || "곡 미선택"}</span>
+          </div>
+          <div className="jam-lyrics-body">
+            {lyrics.length ? (
+              <div ref={lyricsBodyRef} className="jam-lyrics-scroll">
+                {lyrics.map((line, index) => {
+                  const isActive = index === activeLyricIndex;
+                  const isPassed = index < activeLyricIndex;
+
+                  return (
+                    <p
+                      key={`${line.time}-${line.text}`}
+                      ref={isActive ? activeLyricRef : null}
+                      className={`jam-lyrics-line ${isActive ? "active" : ""} ${isPassed ? "passed" : ""}`}
+                    >
+                      {line.text}
+                    </p>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="jam-lyrics-empty">이 곡은 아직 가사가 등록되지 않았습니다.</p>
+            )}
+          </div>
+        </section>
+
         <section className="jam-members-grid">
           {visibleInstruments.map((instrument) => {
             const isActive = session.activeInstruments[instrument];
@@ -70,6 +124,29 @@ export default function JamPage({ onLeave, session }) {
               <p className="jam-section-label">Host Control</p>
               <h2>보컬 호스트 패널</h2>
               <p>트랙을 미리 로드하고, 방 안에서도 곡 변경과 재시작을 할 수 있습니다.</p>
+              <div className="jam-switcher" style={{ marginTop: "16px", marginBottom: "16px" }}>
+                <button
+                  type="button"
+                  className={`jam-switch-chip ${session.vocalMode === "track" ? "current" : ""}`}
+                  onClick={() => session.setVocalMode("track")}
+                  disabled={session.songStarted}
+                >
+                  보컬 음원 재생
+                </button>
+                <button
+                  type="button"
+                  className={`jam-switch-chip ${session.vocalMode === "live" ? "current" : ""}`}
+                  onClick={() => session.setVocalMode("live")}
+                  disabled={session.songStarted}
+                >
+                  직접 부르기
+                </button>
+              </div>
+              <p className="small">
+                {session.vocalMode === "live"
+                  ? "직접 부르기 모드에서는 곡 시작 시 보컬 MP3 없이 반주만 재생됩니다. 하울링 방지를 위해 이어폰 사용을 권장합니다."
+                  : "보컬 음원 재생 모드에서는 기존처럼 보컬 트랙이 함께 재생됩니다."}
+              </p>
               <div className="song-search-wrap host-song-search">
                 <input
                   type="text"
@@ -103,6 +180,11 @@ export default function JamPage({ onLeave, session }) {
               <button className="jam-secondary-button" onClick={session.restartSong}>
                 재시작
               </button>
+              {session.vocalMode === "live" ? (
+                <button className="jam-secondary-button" onClick={session.toggleLiveVocal}>
+                  {session.liveVocalEnabled ? "직접 부르기 종료" : "직접 부르기 시작"}
+                </button>
+              ) : null}
             </div>
           </section>
         )}
