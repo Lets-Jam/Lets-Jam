@@ -1,4 +1,5 @@
 import { maroon5SugarLrc } from "./maroon5Sugar";
+import { septemberLrc } from "./september";
 import { theNightsLrc } from "./theNights";
 
 function parseTimeTag(tag) {
@@ -26,6 +27,7 @@ function parseLrc(lrc) {
 
 const timedLyricsBySongId = {
   "Maroon5-sugar": parseLrc(maroon5SugarLrc),
+  September: parseLrc(septemberLrc),
   TheNights: parseLrc(theNightsLrc),
 };
 

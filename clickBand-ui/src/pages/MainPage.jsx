@@ -167,7 +167,7 @@ const MainPage = ({ onGoToDevPage, session }) => {
                 onClick={handleCreateSubmit}
                 disabled={session.isBusy || session.songsLoading || !session.selectedSongId}
               >
-                {session.isBusy ? "생성 중" : "이 곡으로 방 만들기"}
+                {session.isBusy ? "생성 중" : "CREATE"}
               </button>
             </div>
           </div>
@@ -179,21 +179,21 @@ const MainPage = ({ onGoToDevPage, session }) => {
           <div className="modal-backdrop" onClick={closeJoinModal}></div>
           <div className="modal-scroll-wrapper">
             <div className="modal-content">
-              <h2 className="modal-title">Jam Code</h2>
+              <h2 className="modal-title">Let's Jam</h2>
               
               <div className="join-options-container">
                 <div className="jam-code-input-wrapper">
                   <input 
                     type="text" 
                     className="jam-code-input" 
-                    placeholder="ex: A1B2C3" 
+                    placeholder="JAM CODE를 입력하세요." 
                     maxLength={6}
                     value={jamCode}
                     onChange={handleCodeChange}
                   />
                 </div>
                 <div className="join-option-button qr-scan-button">
-                  QR 스캔으로 접속하면 이 화면을 거치지 않고 바로 방 입장을 시도합니다.
+                  QR 코드로 입장
                 </div>
               </div>
             </div>

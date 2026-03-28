@@ -770,6 +770,513 @@ body {
   }
 }
 
+.jam-room-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(22, 94, 126, 0.28), transparent 28%),
+    radial-gradient(circle at bottom, rgba(6, 44, 63, 0.42), transparent 30%),
+    linear-gradient(180deg, #082c3b 0%, #031925 100%);
+  color: #f4fbff;
+}
+
+.jam-room-shell-redesign {
+  max-width: 1220px;
+  padding: 64px 32px 72px;
+  gap: 22px;
+}
+
+.jam-back-button {
+  position: fixed;
+  top: 56px;
+  left: 56px;
+  z-index: 4;
+  width: 50px;
+  height: 50px;
+  border-radius: 999px;
+  border: 1px solid rgba(112, 195, 236, 0.75);
+  background: rgba(6, 36, 49, 0.28);
+  color: #dff6ff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.jam-back-button svg {
+  width: 22px;
+  height: 22px;
+}
+
+.jam-panel {
+  border-radius: 30px;
+  border: 1px solid rgba(77, 154, 189, 0.58);
+  background: rgba(5, 35, 49, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(6, 69, 93, 0.24);
+  backdrop-filter: blur(18px);
+}
+
+.jam-top-panel {
+  padding: 42px 40px;
+  display: flex;
+  justify-content: space-between;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.jam-top-left {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.jam-live-label {
+  margin: 0 0 28px;
+  color: rgba(226, 246, 255, 0.86);
+  font-size: 0.92rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jam-live-label span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff2b2b;
+}
+
+.jam-song-meta-card {
+  max-width: 430px;
+  padding: 12px 10px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(72, 136, 170, 0.58);
+  background: rgba(10, 48, 67, 0.34);
+}
+
+.jam-song-picker-trigger {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.jam-song-picker-trigger:disabled {
+  cursor: default;
+}
+
+.jam-song-meta-card h1 {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  font-size: clamp(2rem, 5vw, 3rem);
+  letter-spacing: 0.12em;
+  line-height: 1;
+}
+
+.jam-song-picker-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.jam-change-icon {
+  width: 28px;
+  height: 28px;
+  color: rgba(229, 246, 255, 0.92);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.jam-change-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.jam-song-meta-card p {
+  margin: 14px 0 0;
+  color: rgba(215, 239, 250, 0.82);
+  font-size: 1.45rem;
+}
+
+.jam-song-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(1, 12, 18, 0.36);
+  backdrop-filter: blur(8px);
+}
+
+.jam-song-picker {
+  width: min(560px, calc(100vw - 48px));
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(87, 170, 210, 0.68);
+  background: rgba(4, 31, 43, 0.98);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.32);
+}
+
+.jam-song-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.jam-song-picker-head span {
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(184, 227, 247, 0.76);
+}
+
+.jam-song-picker-close {
+  height: auto;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(198, 231, 247, 0.82);
+  cursor: pointer;
+}
+
+.jam-song-picker-list {
+  margin-top: 0;
+  max-width: none;
+  max-height: 220px;
+}
+
+.jam-mini-pills {
+  margin-top: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.jam-mini-pill {
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(94, 177, 219, 0.7);
+  color: #7ecaf2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.jam-mini-pill.current {
+  background: rgba(136, 211, 255, 0.9);
+  color: #0a3950;
+}
+
+.jam-mini-pill i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #29ff54;
+}
+
+.jam-qr-panel {
+  width: 168px;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.jam-qr-box {
+  width: 136px;
+  height: 136px;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  padding: 6px;
+  background: #fff;
+}
+
+.jam-qr-box img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.jam-room-copy {
+  min-width: 136px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(92, 173, 213, 0.56);
+  background: rgba(7, 44, 59, 0.42);
+  color: #72c7ee;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  letter-spacing: 0.18em;
+}
+
+.jam-room-copy svg {
+  width: 16px;
+  height: 16px;
+}
+
+.jam-session-panel,
+.jam-player-panel {
+  padding: 30px 36px;
+}
+
+.jam-panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+}
+
+.jam-panel-header h2 {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: 0.08em;
+}
+
+.jam-motion-toggle {
+  border: 0;
+  background: transparent;
+  color: #f3fbff;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+}
+
+.jam-motion-toggle:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.jam-motion-icon {
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.jam-motion-switch {
+  width: 52px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(133, 176, 197, 0.34);
+  position: relative;
+  transition: background 180ms ease;
+}
+
+.jam-motion-switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 180ms ease;
+}
+
+.jam-motion-toggle.active .jam-motion-switch {
+  background: rgba(94, 201, 255, 0.68);
+}
+
+.jam-motion-toggle.active .jam-motion-switch i {
+  transform: translateX(24px);
+}
+
+.jam-session-actions {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.jam-session-chip {
+  min-height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(80, 158, 200, 0.58);
+  background: rgba(4, 35, 49, 0.45);
+  color: #effbff;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.jam-session-chip.current,
+.jam-session-chip.active {
+  background: rgba(102, 195, 244, 0.16);
+  border-color: rgba(122, 210, 255, 0.9);
+}
+
+.jam-session-chip:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.jam-mic-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jam-mic-chip svg {
+  width: 22px;
+  height: 22px;
+}
+
+.jam-player-panel {
+  display: grid;
+  gap: 24px;
+}
+
+.jam-lyric-focus {
+  padding: 18px 22px;
+  border-radius: 24px;
+  border: 1px solid rgba(72, 137, 170, 0.65);
+  background: rgba(5, 31, 44, 0.5);
+  min-height: 104px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.jam-lyric-current,
+.jam-lyric-next {
+  margin: 0;
+}
+
+.jam-lyric-current {
+  font-size: 1.7rem;
+  line-height: 1.25;
+  color: #f4fbff;
+}
+
+.jam-lyric-next {
+  font-size: 1.15rem;
+  color: rgba(78, 150, 186, 0.78);
+}
+
+.jam-player-progress-row {
+  display: grid;
+  grid-template-columns: 52px 1fr 52px;
+  gap: 18px;
+  align-items: center;
+}
+
+.jam-player-progress-row span {
+  color: rgba(229, 244, 252, 0.9);
+  font-size: 0.92rem;
+}
+
+.jam-progress-track.redesigned {
+  height: 5px;
+  background: rgba(143, 194, 219, 0.28);
+}
+
+.jam-player-controls {
+  display: flex;
+  justify-content: center;
+  gap: 22px;
+}
+
+.jam-icon-button {
+  width: 52px;
+  height: 52px;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.jam-icon-button:disabled {
+  opacity: 0.36;
+  cursor: not-allowed;
+}
+
+.jam-icon-button svg {
+  width: 34px;
+  height: 34px;
+}
+
+@media (max-width: 1200px) {
+  .jam-room-shell-redesign {
+    padding-left: 88px;
+  }
+
+  .jam-session-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .jam-back-button {
+    top: 20px;
+    left: 20px;
+  }
+
+  .jam-top-panel {
+    flex-direction: column;
+  }
+
+  .jam-qr-panel {
+    width: 100%;
+    justify-items: flex-start;
+  }
+
+  .jam-session-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .jam-room-shell-redesign {
+    padding: 84px 16px 40px;
+  }
+
+  .jam-top-panel,
+  .jam-session-panel,
+  .jam-player-panel {
+    padding: 22px 18px;
+  }
+
+  .jam-song-meta-card h1 {
+    font-size: 2rem;
+  }
+
+  .jam-song-meta-card p {
+    font-size: 1.1rem;
+  }
+
+  .jam-lyric-current {
+    font-size: 1.15rem;
+  }
+
+  .jam-lyric-next {
+    font-size: 0.95rem;
+  }
+
+  .jam-player-progress-row {
+    grid-template-columns: 40px 1fr 40px;
+    gap: 12px;
+  }
+}
+
 .cosmos-button {
     background-color: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(16px);

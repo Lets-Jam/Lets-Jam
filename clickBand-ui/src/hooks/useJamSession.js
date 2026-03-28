@@ -81,7 +81,9 @@ export function useJamSession() {
   const micGainRef = useRef(null);
   const progressTimerRef = useRef(null);
   const roleRef = useRef(null);
+  const roomIdRef = useRef("");
   const myInstrumentRef = useRef(null);
+  const activeInstrumentsRef = useRef(initialActive);
   const lastTriggerAtRef = useRef(0);
   const instrumentAlreadyTriggeredRef = useRef(false);
   const audioStartedRef = useRef(false);
@@ -93,6 +95,7 @@ export function useJamSession() {
   const autoJoinAttemptedRef = useRef(false);
   const motionStopTimerRef = useRef(null);
   const previousSongIdRef = useRef("");
+  const pendingActivateInstrumentRef = useRef(null);
 
   const [roomId, setRoomId] = useState("");
   const [role, setRole] = useState(null);
@@ -329,6 +332,21 @@ export function useJamSession() {
 
     ensureDurationLoaded();
     startProgressLoop();
+
+    if (!audioStartedRef.current) {
+      const computedElapsed =
+        serverNow && typeof elapsedSec === "number"
+          ? Math.max(0, elapsedSec + (Date.now() - serverNow) / 1000)
+          : Math.max(0, (Date.now() - startedAt) / 1000);
+
+      initAudio()
+        .then(() => {
+          if (!audioStartedRef.current) {
+            startAllTracks(computedElapsed);
+          }
+        })
+        .catch(() => {});
+    }
   };
 
   const initAudio = async () => {
@@ -375,7 +393,7 @@ export function useJamSession() {
     audioStateRef.current.gains[instrument] = gain;
   };
 
-  const startAllTracks = () => {
+  const startAllTracks = (startOffsetSec = 0) => {
     if (!audioContextRef.current) {
       throw new Error("먼저 오디오를 초기화해주세요.");
     }
@@ -388,12 +406,17 @@ export function useJamSession() {
       if (instrument === "vocal" && vocalMode === "live") {
         return;
       }
-      createTrackSource(instrument, instrument === myInstrumentRef.current ? 1 : 0);
+      const shouldStartAudible =
+        roleRef.current === "host"
+          ? Boolean(activeInstrumentsRef.current?.[instrument])
+          : instrument === myInstrumentRef.current && Boolean(activeInstrumentsRef.current?.[instrument]);
+      createTrackSource(instrument, shouldStartAudible ? 1 : 0);
     });
 
-    songStartAtRef.current = audioContextRef.current.currentTime + 0.15;
+    const startDelay = 0.15;
+    songStartAtRef.current = audioContextRef.current.currentTime + startDelay - startOffsetSec;
     Object.values(audioStateRef.current.sources).forEach((source) => {
-      source.start(songStartAtRef.current);
+      source.start(audioContextRef.current.currentTime + startDelay, startOffsetSec);
     });
 
     audioStartedRef.current = true;
@@ -407,8 +430,8 @@ export function useJamSession() {
   };
 
   const toggleLiveVocal = async () => {
-    if (roleRef.current !== "host") {
-      alert("보컬 호스트만 사용할 수 있습니다.");
+    if (!roomId) {
+      alert("먼저 방에 참가해주세요.");
       return;
     }
 
@@ -417,18 +440,22 @@ export function useJamSession() {
       return;
     }
 
-    if (vocalMode !== "live") {
-      alert("먼저 보컬 모드를 '직접 부르기'로 바꿔주세요.");
-      return;
-    }
-
     if (liveVocalEnabled) {
       stopLiveVocal();
+      setVocalMode("track");
+      if (audioStartedRef.current && activeInstruments.vocal) {
+        setLocalInstrumentGain("vocal", 1);
+      }
       addLog("직접 부르기 모니터링 종료");
       return;
     }
 
     try {
+      setVocalMode("live");
+      if (audioStartedRef.current) {
+        setLocalInstrumentGain("vocal", 0);
+      }
+
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("이 브라우저에서는 마이크를 지원하지 않습니다.");
       }
@@ -612,7 +639,9 @@ export function useJamSession() {
     socket.on(SOCKET_EVENTS.INSTRUMENT_ACTIVATED, ({ instrument, activeInstruments, activatedAt }) => {
       setActiveInstruments(activeInstruments || initialActive);
       setActivatedAt(activatedAt || initialActivatedAt);
-      if (roleRef.current === "host") activateLocalInstrument(instrument);
+      if (roleRef.current === "host" || instrument === myInstrumentRef.current) {
+        activateLocalInstrument(instrument);
+      }
       addLog(`${instrumentLabels[instrument] || instrument} 악기가 활성화되었습니다.`);
     });
 
@@ -621,7 +650,9 @@ export function useJamSession() {
       ({ instrument, activeInstruments, activatedAt }) => {
         setActiveInstruments(activeInstruments || initialActive);
         setActivatedAt(activatedAt || initialActivatedAt);
-        if (roleRef.current === "host") deactivateLocalInstrument(instrument);
+        if (roleRef.current === "host" || instrument === myInstrumentRef.current) {
+          deactivateLocalInstrument(instrument);
+        }
         addLog(`${instrumentLabels[instrument] || instrument} 악기가 비활성화되었습니다.`);
       }
     );
@@ -684,14 +715,41 @@ export function useJamSession() {
   }, [role]);
 
   useEffect(() => {
+    roomIdRef.current = roomId;
+  }, [roomId]);
+
+  useEffect(() => {
     myInstrumentRef.current = myInstrument;
   }, [myInstrument]);
+
+  useEffect(() => {
+    activeInstrumentsRef.current = activeInstruments;
+  }, [activeInstruments]);
+
+  useEffect(() => {
+    if (!songStarted || !myInstrument || pendingActivateInstrumentRef.current !== myInstrument) {
+      return;
+    }
+
+    pendingActivateInstrumentRef.current = null;
+    socketRef.current?.emit(SOCKET_EVENTS.ACTIVATE_INSTRUMENT, {
+      roomId: roomIdRef.current,
+      instrument: myInstrument,
+    });
+  }, [myInstrument, songStarted]);
 
   useEffect(() => {
     if (vocalMode !== "live") {
       stopLiveVocal();
     }
   }, [vocalMode]);
+
+  useEffect(() => {
+    if (myInstrument !== "vocal" && liveVocalEnabled) {
+      stopLiveVocal();
+      setVocalMode("track");
+    }
+  }, [myInstrument, liveVocalEnabled]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -838,6 +896,27 @@ export function useJamSession() {
     );
   };
 
+  const selectPart = (instrument) => {
+    if (!roomId) {
+      alert("먼저 방에 참가해주세요.");
+      return;
+    }
+    if (!instrument) return;
+
+    if (instrument === myInstrument) {
+      manualPlay();
+      return;
+    }
+
+    if (activeInstruments[instrument]) {
+      alert("이미 재생 중인 파트는 선택할 수 없습니다.");
+      return;
+    }
+
+    pendingActivateInstrumentRef.current = songStarted && !motionEnabled ? instrument : null;
+    changeInstrument(instrument);
+  };
+
   const changeInstrument = (instrument) => {
     if (!roomId) {
       alert("먼저 방에 참가해주세요.");
@@ -869,6 +948,23 @@ export function useJamSession() {
     } catch (error) {
       alert(error.message);
     }
+  };
+
+  const toggleMotion = async () => {
+    if (motionEnabled) {
+      setMotionEnabled(false);
+      addLog("모션 감지가 비활성화되었습니다.");
+      return;
+    }
+
+    if (roomIdRef.current && myInstrumentRef.current && activeInstrumentsRef.current?.[myInstrumentRef.current]) {
+      socketRef.current?.emit(SOCKET_EVENTS.DEACTIVATE_INSTRUMENT, {
+        roomId: roomIdRef.current,
+        instrument: myInstrumentRef.current,
+      });
+    }
+
+    await enableMotion();
   };
 
   const changeSong = async (songId) => {
@@ -951,8 +1047,10 @@ export function useJamSession() {
     preloadAudio,
     toggleLiveVocal,
     manualPlay,
+    selectPart,
     changeInstrument,
     enableMotion,
+    toggleMotion,
     setMotionThreshold,
     changeSong,
     restartSong,

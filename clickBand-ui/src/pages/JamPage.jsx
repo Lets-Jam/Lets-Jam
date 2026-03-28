@@ -1,259 +1,277 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useMemo, useState } from "react";
 import { formatTime, getInstrumentLabel } from "../hooks/useJamSession";
 import { getActiveLyricIndex, getTimedLyrics } from "../lib/lyrics";
+import { getSongMeta } from "../lib/songMeta";
+
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 12h12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="9" y="9" width="10" height="10" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M7 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 15a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M18 11.5a6 6 0 0 1-12 0M12 17.5V21M9 21h6" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M8 6.5v11l9-5.5-9-5.5Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function RestartIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20 6v5h-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 11a8 8 0 1 1-2.35-5.65L20 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ChangeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L9 17l-4 1 1-4 10.5-10.5Z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M14 6l4 4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 export default function JamPage({ onLeave, session }) {
-  const progress = session.playback.duration
-    ? Math.min((session.playback.current / session.playback.duration) * 100, 100)
-    : 0;
-  const lyricsBodyRef = useRef(null);
-  const activeLyricRef = useRef(null);
+  const [copied, setCopied] = useState(false);
+  const [songPickerOpen, setSongPickerOpen] = useState(false);
   const lyrics = useMemo(() => getTimedLyrics(session.selectedSongId), [session.selectedSongId]);
   const activeLyricIndex = useMemo(
     () => getActiveLyricIndex(lyrics, session.playback.current),
     [lyrics, session.playback.current]
   );
+  const currentLyric =
+    activeLyricIndex >= 0 ? lyrics[activeLyricIndex]?.text : lyrics[0]?.text || "가사가 준비되지 않았습니다.";
+  const nextLyric =
+    activeLyricIndex >= 0 ? lyrics[activeLyricIndex + 1]?.text || "..." : lyrics[1]?.text || "...";
+  const progress = session.playback.duration
+    ? Math.min((session.playback.current / session.playback.duration) * 100, 100)
+    : 0;
   const visibleInstruments = session.availableInstruments;
+  const songMeta = getSongMeta(session.selectedSongId);
   const filteredHostSongs = session.songs.filter((song) =>
     song.title.toLowerCase().includes(session.hostSongSearch.trim().toLowerCase())
   );
 
-  useEffect(() => {
-    const container = lyricsBodyRef.current;
-    const activeLine = activeLyricRef.current;
-    if (!container || !activeLine || activeLyricIndex < 0) return;
+  const handleCopyRoomCode = async () => {
+    if (!session.roomId) return;
 
-    const targetScrollTop =
-      activeLine.offsetTop - container.clientHeight / 2 + activeLine.clientHeight / 2;
-
-    container.scrollTo({
-      top: Math.max(0, targetScrollTop),
-      behavior: "smooth",
-    });
-  }, [activeLyricIndex]);
+    try {
+      await navigator.clipboard.writeText(session.roomId);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      alert("방 코드를 복사하지 못했습니다.");
+    }
+  };
 
   return (
     <div className="jam-room-page">
-      <div className="jam-room-shell">
-        <header className="jam-room-header">
-          <div>
-            <p className="jam-overline">Live Session</p>
-            <h1>Jam Room</h1>
-            <p className="jam-subtitle">{session.roleText}</p>
-            <p className="jam-song-title">{session.selectedSongTitle}</p>
-          </div>
-          <div className="jam-header-actions">
-            <div className="room-code-card">
-              <span>ROOM CODE</span>
-              <strong>{session.roomId}</strong>
-            </div>
-            <button className="jam-secondary-button" onClick={onLeave}>
-              방 나가기
-            </button>
-          </div>
-        </header>
+      <button className="jam-back-button" type="button" onClick={onLeave} aria-label="뒤로 가기">
+        <BackIcon />
+      </button>
 
-        <section className="jam-hero-card">
-          <div className="jam-progress-copy">
-            <p className="jam-section-label">Playback</p>
-            <h2>{session.songStarted ? "합주가 진행 중입니다" : "방장이 시작을 기다리고 있어요"}</h2>
-            <p>
-              {formatTime(session.playback.current)} / {formatTime(session.playback.duration)}
+      <div className="jam-room-shell jam-room-shell-redesign">
+        <section className="jam-panel jam-top-panel">
+          <div className="jam-top-left">
+            <p className="jam-live-label">
+              Live
+              <span />
             </p>
-          </div>
-          <div className="jam-progress-track">
-            <div className="jam-progress-bar" style={{ width: `${progress}%` }} />
-          </div>
-        </section>
 
-        <section className="jam-lyrics-card">
-          <div className="jam-lyrics-header">
-            <div>
-              <p className="jam-section-label">Lyrics</p>
-              <h2>노래 가사</h2>
+            <div className="jam-song-meta-card">
+              <button
+                type="button"
+                className="jam-song-picker-trigger"
+                onClick={() => session.isHost && setSongPickerOpen((prev) => !prev)}
+                disabled={!session.isHost}
+              >
+                <div className="jam-song-picker-title-row">
+                  <h1>{songMeta.title}</h1>
+                  {session.isHost ? (
+                    <span className="jam-change-icon" aria-hidden="true">
+                      <ChangeIcon />
+                    </span>
+                  ) : null}
+                </div>
+              </button>
+              <p>{songMeta.artist}</p>
             </div>
-            <span>{session.selectedSongTitle || "곡 미선택"}</span>
-          </div>
-          <div className="jam-lyrics-body">
-            {lyrics.length ? (
-              <div ref={lyricsBodyRef} className="jam-lyrics-scroll">
-                {lyrics.map((line, index) => {
-                  const isActive = index === activeLyricIndex;
-                  const isPassed = index < activeLyricIndex;
 
-                  return (
-                    <p
-                      key={`${line.time}-${line.text}`}
-                      ref={isActive ? activeLyricRef : null}
-                      className={`jam-lyrics-line ${isActive ? "active" : ""} ${isPassed ? "passed" : ""}`}
+            {session.isHost && songPickerOpen ? (
+              <div className="jam-song-picker-overlay" onClick={() => setSongPickerOpen(false)}>
+                <div className="jam-song-picker" onClick={(e) => e.stopPropagation()}>
+                  <div className="jam-song-picker-head">
+                    <span>Change Track</span>
+                    <button type="button" className="jam-song-picker-close" onClick={() => setSongPickerOpen(false)}>
+                      닫기
+                    </button>
+                  </div>
+                <div className="song-search-wrap host-song-search">
+                  <input
+                    type="text"
+                    className="song-search-input"
+                    placeholder="노래 검색"
+                    value={session.hostSongSearch}
+                    onChange={(e) => session.setHostSongSearch(e.target.value)}
+                  />
+                </div>
+                <div className="song-selector song-selector-scroll host-song-list jam-song-picker-list">
+                  {filteredHostSongs.map((song) => (
+                    <button
+                      key={song.id}
+                      type="button"
+                      className={`song-card ${session.selectedSongId === song.id ? "selected" : ""}`}
+                      onClick={() => {
+                        session.changeSong(song.id);
+                        setSongPickerOpen(false);
+                      }}
                     >
-                      {line.text}
-                    </p>
-                  );
-                })}
+                      <span className="song-card-label">Song</span>
+                      <strong>{getSongMeta(song.id).title}</strong>
+                    </button>
+                  ))}
+                </div>
+                </div>
               </div>
-            ) : (
-              <p className="jam-lyrics-empty">이 곡은 아직 가사가 등록되지 않았습니다.</p>
-            )}
+            ) : null}
+
+            <div className="jam-mini-pills">
+              {visibleInstruments.map((instrument) => {
+                const isCurrent = session.myInstrument === instrument;
+                const isActive = session.activeInstruments[instrument];
+
+                return (
+                  <span key={instrument} className={`jam-mini-pill ${isCurrent ? "current" : ""}`}>
+                    {getInstrumentLabel(instrument)}
+                    {isActive ? <i /> : null}
+                  </span>
+                );
+              })}
+            </div>
           </div>
-        </section>
 
-        <section className="jam-members-grid">
-          {visibleInstruments.map((instrument) => {
-            const isActive = session.activeInstruments[instrument];
-            const joinedAt = session.activatedAt[instrument];
-
-            return (
-              <article key={instrument} className={`jam-member-card ${isActive ? "active" : ""}`}>
-                <p className="jam-section-label">PART</p>
-                <h3>{getInstrumentLabel(instrument)}</h3>
-                <strong>{isActive ? "ON AIR" : "READY"}</strong>
-                <p>
-                  {joinedAt === null
-                    ? "아직 참가 전"
-                    : `${formatTime(joinedAt)}부터 활성화`}
-                </p>
-              </article>
-            );
-          })}
-        </section>
-
-        {session.isHost && (
-          <section className="jam-control-card">
-            <div>
-              <p className="jam-section-label">Host Control</p>
-              <h2>방장 제어 패널</h2>
-              <p>트랙을 미리 로드하고, 방 안에서도 곡 변경과 재시작을 할 수 있습니다.</p>
-              <div className="jam-switcher" style={{ marginTop: "16px", marginBottom: "16px" }}>
-                <button
-                  type="button"
-                  className={`jam-switch-chip ${session.vocalMode === "track" ? "current" : ""}`}
-                  onClick={() => session.setVocalMode("track")}
-                  disabled={session.songStarted}
-                >
-                  보컬 음원 재생
-                </button>
-                <button
-                  type="button"
-                  className={`jam-switch-chip ${session.vocalMode === "live" ? "current" : ""}`}
-                  onClick={() => session.setVocalMode("live")}
-                  disabled={session.songStarted}
-                >
-                  직접 부르기
-                </button>
-              </div>
-              <p className="small">
-                {session.vocalMode === "live"
-                  ? "직접 부르기 모드에서는 곡 시작 시 보컬 MP3 없이 반주만 재생됩니다. 하울링 방지를 위해 이어폰 사용을 권장합니다."
-                  : "보컬 음원 재생 모드에서는 기존처럼 보컬 트랙이 함께 재생됩니다."}
-              </p>
-              <div className="song-search-wrap host-song-search">
-                <input
-                  type="text"
-                  className="song-search-input"
-                  placeholder="노래 검색"
-                  value={session.hostSongSearch}
-                  onChange={(e) => session.setHostSongSearch(e.target.value)}
-                />
-              </div>
-              <div className="song-selector song-selector-scroll host-song-list">
-                {filteredHostSongs.map((song) => (
-                  <button
-                    key={song.id}
-                    type="button"
-                    className={`song-card ${session.selectedSongId === song.id ? "selected" : ""}`}
-                    onClick={() => session.changeSong(song.id)}
-                  >
-                    <span className="song-card-label">Song</span>
-                    <strong>{song.title}</strong>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="jam-control-actions">
-              <button className="jam-secondary-button" onClick={session.preloadAudio}>
-                오디오 미리 로드
-              </button>
-              <button className="jam-primary-button" onClick={session.startSong}>
-                곡 시작
-              </button>
-              <button className="jam-secondary-button" onClick={session.restartSong}>
-                재시작
-              </button>
-              {session.vocalMode === "live" && session.myInstrument === "vocal" ? (
-                <button className="jam-secondary-button" onClick={session.toggleLiveVocal}>
-                  {session.liveVocalEnabled ? "직접 부르기 종료" : "직접 부르기 시작"}
-                </button>
-              ) : null}
-            </div>
-          </section>
-        )}
-
-        {session.isHost && session.joinUrl ? (
-          <section className="jam-qr-card">
-            <div>
-              {/* <p className="jam-section-label">Quick Join</p> */}
-              <h2>QR로 바로 입장</h2>
-              <p>참가자가 카메라로 QR을 스캔하면 이 방 링크로 들어와 자동 입장을 시도합니다.</p>
-              {/* <a className="jam-join-link" href={session.joinUrl}>
-                {session.joinUrl}
-              </a> */}
-            </div>
+          <div className="jam-qr-panel">
             <div className="jam-qr-box">
               <img src={session.qrCodeImageUrl} alt={`Join room ${session.roomId} QR code`} />
             </div>
-          </section>
-        ) : null}
+            <button type="button" className="jam-room-copy" onClick={handleCopyRoomCode}>
+              <span>{copied ? "COPIED" : session.roomId}</span>
+              <CopyIcon />
+            </button>
+          </div>
+        </section>
 
-        {session.inRoom && (
-          <section className="jam-control-card">
+        <section className="jam-panel jam-session-panel">
+          <div className="jam-panel-header">
             <div>
-              <p className="jam-section-label">Part Control</p>
-              <h2>{session.myInstrument ? `${getInstrumentLabel(session.myInstrument)} 파트 선택됨` : "보컬 또는 악기 파트를 선택하세요"}</h2>
-              <p>방장과 참가자 모두 파트를 바꿀 수 있습니다. 실제 재생은 아래 수동 버튼이나 모션 감지로 시작됩니다.</p>
-              <div className="jam-sensitivity">
-                <label htmlFor="motion-threshold">모션 민감도</label>
-                <input
-                  id="motion-threshold"
-                  type="range"
-                  min="12"
-                  max="40"
-                  step="1"
-                  value={session.motionThreshold}
-                  onChange={(e) => session.setMotionThreshold(Number(e.target.value))}
-                  disabled={!session.canUseMotion}
-                />
-                <span>{session.motionThreshold}</span>
-              </div>
-              <div className="jam-switcher">
-                {visibleInstruments.map((instrument) => {
-                  const isCurrent = session.myInstrument === instrument;
-                  const isBlocked = session.activeInstruments[instrument] && !isCurrent;
+              <p className="jam-section-label">Select Session</p>
+              <h2>{session.myInstrument ? `${getInstrumentLabel(session.myInstrument)} 선택됨` : "파트를 선택하세요"}</h2>
+            </div>
+            <button
+              type="button"
+              className={`jam-motion-toggle ${session.motionEnabled ? "active" : ""}`}
+              onClick={session.toggleMotion}
+              disabled={!session.canUseMotion}
+              aria-label="모션 감지 토글"
+            >
+              <span className="jam-motion-icon">〰</span>
+              <span className="jam-motion-switch">
+                <i />
+              </span>
+            </button>
+          </div>
 
-                  return (
-                    <button
-                      key={instrument}
-                      type="button"
-                      className={`jam-switch-chip ${isCurrent ? "current" : ""}`}
-                      onClick={() => session.changeInstrument(instrument)}
-                      disabled={isCurrent || isBlocked || session.isChangingInstrument}
-                    >
-                      {getInstrumentLabel(instrument)}
-                    </button>
-                  );
-                })}
-              </div>
+          <div className="jam-session-actions">
+            {visibleInstruments.map((instrument) => {
+              const isCurrent = session.myInstrument === instrument;
+              const isActive = session.activeInstruments[instrument];
+              const isBlocked = session.activeInstruments[instrument] && !isCurrent;
+
+              return (
+                <button
+                  key={instrument}
+                  type="button"
+                  className={`jam-session-chip ${isCurrent ? "current" : ""} ${isActive ? "active" : ""}`}
+                  onClick={() => session.selectPart(instrument)}
+                  disabled={isBlocked || session.isChangingInstrument}
+                >
+                  {getInstrumentLabel(instrument)}
+                </button>
+              );
+            })}
+
+            <button
+              type="button"
+              className={`jam-session-chip jam-mic-chip ${session.liveVocalEnabled ? "active" : ""}`}
+              onClick={session.toggleLiveVocal}
+              disabled={session.myInstrument !== "vocal"}
+              aria-label="마이크 토글"
+            >
+              <MicIcon />
+            </button>
+          </div>
+        </section>
+
+        <section className="jam-panel jam-player-panel">
+          <div className="jam-lyric-focus">
+            <p className="jam-lyric-current">{currentLyric}</p>
+            <p className="jam-lyric-next">{nextLyric}</p>
+          </div>
+
+          <div className="jam-player-progress-row">
+            <span>{formatTime(session.playback.current)}</span>
+            <div className="jam-progress-track redesigned">
+              <div className="jam-progress-bar" style={{ width: `${progress}%` }} />
             </div>
-            <div className="jam-control-actions">
-              <button className="jam-secondary-button" onClick={session.manualPlay} disabled={!session.myInstrument}>
-                {session.myInstrument && session.activeInstruments[session.myInstrument] ? "수동으로 멈추기" : "수동으로 재생하기"}
-              </button>
-              <button className="jam-primary-button" onClick={session.enableMotion} disabled={!session.canUseMotion}>
-                {session.motionEnabled ? "모션 감지 활성화됨" : "모션 감지 켜기"}
-              </button>
-            </div>
-          </section>
-        )}
+            <span>{formatTime(session.playback.duration)}</span>
+          </div>
+
+          <div className="jam-player-controls">
+            <button
+              type="button"
+              className="jam-icon-button"
+              onClick={session.startSong}
+              disabled={!session.isHost}
+              aria-label="곡 시작"
+            >
+              <PlayIcon />
+            </button>
+            <button
+              type="button"
+              className="jam-icon-button"
+              onClick={session.restartSong}
+              disabled={!session.isHost}
+              aria-label="곡 재시작"
+            >
+              <RestartIcon />
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   );
