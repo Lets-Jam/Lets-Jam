@@ -209,11 +209,11 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   text-align: center;
   gap: 2.5rem; /* 40px */
   width: 100%;
-  padding-top: 18vh; /* 배경의 로고가 보이도록 컨텐츠를 아래로 내립니다. */
+  padding-top: 48vh; /* 버튼과 문구를 포함한 전체 컨텐츠를 더 아래로 내립니다. */
 }
 
 .main-center-content {
@@ -241,10 +241,33 @@ body {
 }
 
 .connection-status {
+  width: 100%;
+  max-width: 448px;
+  height: 48px;
+  margin: 0to;
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(4px);
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  perspective: 1000px;
+}
+
+.connection-status-text {
   margin: 0;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.85rem;
-  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: clamp(0.7rem, 3.5vw, 0.85rem);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  position: absolute;
+  animation: flipUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes flipUp {
+  0% { opacity: 0; transform: translateY(20px) rotateX(-60deg); }
+  100% { opacity: 1; transform: translateY(0) rotateX(0deg); }
 }
 
 .song-selector {
@@ -1332,7 +1355,7 @@ body {
     display: block;
   }
   .main-content {
-    padding-top: 8vh; /* 모바일에서 문구를 더 위로 올립니다. */
+    padding-top: 48vh; /* 모바일에서도 전체적으로 아래로 내립니다. */
   }
 }
 

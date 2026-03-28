@@ -1,4 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+
+const FUNNY_STATUS_MESSAGES = [
+  "Welcome to Let's Jam! 즉석 연주로 새로운 인연을 만들어 보세요.",
+  "Coldplay 기타 연결중...",
+  "SPYAIR 공연 준비중...",
+  "Oasis 재결합 설득중...",
+  "Queen 드럼 세팅중...",
+  "The Beatles 횡단보도 건너는중...",
+  "Silica Gel 기타 이펙터 밟는중...",
+  "DAY6 악보 챙기는중...",
+  "Red Hot Chili Peppers 베이스 튜닝중...",
+  "Metallica 앰프 예열중...",
+  "Arctic Monkeys 마이크 테스트중...",
+  "Nirvana 드럼 스틱 깎는중..."
+];
 
 const MainPage = ({ onGoToDevPage, session }) => {
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
@@ -8,10 +23,28 @@ const MainPage = ({ onGoToDevPage, session }) => {
   const filteredSongs = session.songs.filter((song) =>
     song.title.toLowerCase().includes(songSearch.trim().toLowerCase())
   );
+  const [funnyMessage, setFunnyMessage] = useState("");
+
+  useEffect(() => {
+    let lastIndex = 0;
+    setFunnyMessage(FUNNY_STATUS_MESSAGES[0]); // 처음에는 Welcome 문구가 뜨도록 고정
+    
+    const interval = setInterval(() => {
+      let nextIndex;
+      do {
+        nextIndex = Math.floor(Math.random() * FUNNY_STATUS_MESSAGES.length);
+      } while (nextIndex === lastIndex); // 같은 문구가 연속으로 나오지 않도록 처리
+      lastIndex = nextIndex;
+      setFunnyMessage(FUNNY_STATUS_MESSAGES[nextIndex]);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const openCreateModal = () => {
     setCreateModalOpen(true);
     setSongSearch("");
+    session.setSelectedSongId("");
   };
   const closeCreateModal = () => setCreateModalOpen(false);
 
@@ -66,11 +99,6 @@ const MainPage = ({ onGoToDevPage, session }) => {
         </header>
 
         <main className="main-content">
-          <div className="main-center-content">
-            <p className="welcome-text">
-              Welcome to Let's Jam!<br className="mobile-break" /> 즉석 연주로 새로운 인연을 만들어 보세요.
-            </p>
-          </div>
 
           <div className="action-buttons">
             <button
@@ -78,20 +106,22 @@ const MainPage = ({ onGoToDevPage, session }) => {
               onClick={openCreateModal}
               disabled={session.isBusy || !session.connectionReady}
             >
-              생성하기
+              Create
             </button>
-            <button className="cosmos-button" onClick={openJoinModal} disabled={session.isBusy || !session.connectionReady}>
-              참여하기
+            <button
+              className="cosmos-button"
+              onClick={openJoinModal}
+              disabled={session.isBusy || !session.connectionReady}
+            >
+              Join
             </button>
           </div>
 
-          <p className="connection-status">
-            {session.connectionReady
-              ? session.pendingRoomCode
-                ? `${session.pendingRoomCode} 방으로 자동 입장 준비 중`
-                : "서버 연결 완료"
-              : "서버 연결 준비 중"}
-          </p>
+          <div className="connection-status">
+            <p key={funnyMessage} className="connection-status-text">
+              {funnyMessage}
+            </p>
+          </div>
         </main>
 
         <footer className="main-footer">
@@ -110,7 +140,7 @@ const MainPage = ({ onGoToDevPage, session }) => {
 
       {isCreateModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" onClick={closeCreateModal}></div>
+          <div className="modal-backdrop"></div>
           <div className="modal-scroll-wrapper">
             <div className="modal-content song-modal-content">
               <h2 className="modal-title">Song Select</h2>
@@ -131,14 +161,19 @@ const MainPage = ({ onGoToDevPage, session }) => {
 
                 {!session.songsLoading && !session.songsError ? (
                   <>
-                    <div className="song-search-wrap">
+                    <div className="song-search-wrap" style={{ position: "relative" }}>
                       <input
                         type="text"
                         className="song-search-input"
                         placeholder="노래 검색"
                         value={songSearch}
                         onChange={(e) => setSongSearch(e.target.value)}
+                        style={{ paddingRight: "40px" }}
                       />
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", right: "16px", top: "50%", transform: "translateY(-50%)", color: "rgba(255, 255, 255, 0.5)", pointerEvents: "none" }}>
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                      </svg>
                     </div>
                     <div className="song-selector song-selector-scroll">
                     {filteredSongs.map((song) => (
@@ -146,7 +181,7 @@ const MainPage = ({ onGoToDevPage, session }) => {
                         key={song.id}
                         type="button"
                         className={`song-card ${session.selectedSongId === song.id ? "selected" : ""}`}
-                        onClick={() => session.setSelectedSongId(song.id)}
+                        onClick={() => session.setSelectedSongId(session.selectedSongId === song.id ? "" : song.id)}
                       >
                         <span className="song-card-label">Song</span>
                         <strong>{song.title}</strong>
@@ -167,7 +202,7 @@ const MainPage = ({ onGoToDevPage, session }) => {
                 onClick={handleCreateSubmit}
                 disabled={session.isBusy || session.songsLoading || !session.selectedSongId}
               >
-                {session.isBusy ? "생성 중" : "CREATE"}
+                {session.isBusy ? "생성 중" : "Create"}
               </button>
             </div>
           </div>
@@ -176,7 +211,7 @@ const MainPage = ({ onGoToDevPage, session }) => {
 
       {isJoinModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" onClick={closeJoinModal}></div>
+          <div className="modal-backdrop"></div>
           <div className="modal-scroll-wrapper">
             <div className="modal-content">
               <h2 className="modal-title">Let's Jam</h2>
@@ -186,15 +221,23 @@ const MainPage = ({ onGoToDevPage, session }) => {
                   <input 
                     type="text" 
                     className="jam-code-input" 
-                    placeholder="JAM CODE를 입력하세요." 
+                    placeholder="Jam Code를 입력하세요" 
                     maxLength={6}
                     value={jamCode}
                     onChange={handleCodeChange}
                   />
                 </div>
-                <div className="join-option-button qr-scan-button">
-                  QR 코드로 입장
-                </div>
+                <label className="join-option-button qr-scan-button">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+                    <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                    <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+                    <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+                    <rect x="7" y="7" width="10" height="10" rx="1" ry="1"></rect>
+                  </svg>
+                  QR코드로 입장
+                  <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handleImageCapture} />
+                </label>
               </div>
             </div>
             <div className="modal-actions">
@@ -202,7 +245,7 @@ const MainPage = ({ onGoToDevPage, session }) => {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
               <button type="button" className={`modal-submit-button ${jamCode.length > 0 ? "show" : ""}`} onClick={handleJoinSubmit} disabled={session.isBusy}>
-                입장
+                Join
               </button>
             </div>
           </div>
