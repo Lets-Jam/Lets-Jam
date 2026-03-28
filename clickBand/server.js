@@ -44,7 +44,7 @@ const VOCAL_TRACK = "vocal";
 function resetRoomForSong(room, song) {
   room.songId = song.id;
   room.songTitle = song.title;
-  room.availableInstruments = song.availableInstruments;
+  room.availableInstruments = song.tracks;
   room.started = false;
   room.startedAt = null;
   room.activeInstruments = createActiveState(song);
@@ -58,16 +58,15 @@ function resetRoomForSong(room, song) {
 }
 
 function restartRoomPlayback(room) {
+  const hostInstrument = room.participants?.[room.host]?.instrument || null;
   room.started = true;
   room.startedAt = Date.now();
-  room.activeInstruments = {
-    ...Object.fromEntries(Object.keys(room.activeInstruments).map((key) => [key, false])),
-    [VOCAL_TRACK]: true,
-  };
-  room.activatedAt = {
-    ...Object.fromEntries(Object.keys(room.activatedAt).map((key) => [key, null])),
-    [VOCAL_TRACK]: 0,
-  };
+  room.activeInstruments = Object.fromEntries(
+    Object.keys(room.activeInstruments).map((key) => [key, key === hostInstrument])
+  );
+  room.activatedAt = Object.fromEntries(
+    Object.keys(room.activatedAt).map((key) => [key, key === hostInstrument ? 0 : null])
+  );
 }
 
 function listSongDirectories() {
@@ -88,7 +87,7 @@ function listSongDirectories() {
         id: entry.name,
         title: entry.name,
         tracks: trackFiles,
-        availableInstruments: trackFiles.filter((track) => track !== VOCAL_TRACK),
+        availableInstruments: trackFiles,
       };
     })
     .filter((song) => song.tracks.includes(VOCAL_TRACK));
@@ -99,15 +98,11 @@ function getSongById(songId) {
 }
 
 function createActiveState(song) {
-  const state = Object.fromEntries(song.tracks.map((track) => [track, false]));
-  if (song.tracks.includes(VOCAL_TRACK)) state[VOCAL_TRACK] = true;
-  return state;
+  return Object.fromEntries(song.tracks.map((track) => [track, false]));
 }
 
 function createActivatedAtState(song) {
-  const state = Object.fromEntries(song.tracks.map((track) => [track, null]));
-  if (song.tracks.includes(VOCAL_TRACK)) state[VOCAL_TRACK] = 0;
-  return state;
+  return Object.fromEntries(song.tracks.map((track) => [track, null]));
 }
 
 function getElapsedSec(room) {
@@ -152,7 +147,7 @@ function getElapsedActivationSec(room) {
 }
 
 function deactivateInstrument(room, instrument) {
-  if (!instrument || instrument === VOCAL_TRACK) return false;
+  if (!instrument) return false;
   if (!room.activeInstruments[instrument]) return false;
 
   room.activeInstruments[instrument] = false;
@@ -200,7 +195,9 @@ io.on("connection", (socket) => {
       startedAt: null,
       activeInstruments: {},
       activatedAt: {},
-      participants: {},
+      participants: {
+        [socket.id]: { instrument: null },
+      },
     };
     resetRoomForSong(rooms[roomId], song);
 
@@ -209,6 +206,7 @@ io.on("connection", (socket) => {
     socket.emit("room_created", {
       roomId,
       role: "host",
+      instrument: rooms[roomId].participants[socket.id].instrument,
       songId: song.id,
       songTitle: song.title,
       availableInstruments: song.availableInstruments,

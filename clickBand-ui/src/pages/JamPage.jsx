@@ -13,7 +13,7 @@ export default function JamPage({ onLeave, session }) {
     () => getActiveLyricIndex(lyrics, session.playback.current),
     [lyrics, session.playback.current]
   );
-  const visibleInstruments = ["vocal", ...session.availableInstruments];
+  const visibleInstruments = session.availableInstruments;
   const filteredHostSongs = session.songs.filter((song) =>
     song.title.toLowerCase().includes(session.hostSongSearch.trim().toLowerCase())
   );
@@ -56,7 +56,7 @@ export default function JamPage({ onLeave, session }) {
         <section className="jam-hero-card">
           <div className="jam-progress-copy">
             <p className="jam-section-label">Playback</p>
-            <h2>{session.songStarted ? "합주가 진행 중입니다" : "보컬이 시작을 기다리고 있어요"}</h2>
+            <h2>{session.songStarted ? "합주가 진행 중입니다" : "방장이 시작을 기다리고 있어요"}</h2>
             <p>
               {formatTime(session.playback.current)} / {formatTime(session.playback.duration)}
             </p>
@@ -105,7 +105,7 @@ export default function JamPage({ onLeave, session }) {
 
             return (
               <article key={instrument} className={`jam-member-card ${isActive ? "active" : ""}`}>
-                <p className="jam-section-label">{instrument === "vocal" ? "HOST" : "PLAYER"}</p>
+                <p className="jam-section-label">PART</p>
                 <h3>{getInstrumentLabel(instrument)}</h3>
                 <strong>{isActive ? "ON AIR" : "READY"}</strong>
                 <p>
@@ -122,7 +122,7 @@ export default function JamPage({ onLeave, session }) {
           <section className="jam-control-card">
             <div>
               <p className="jam-section-label">Host Control</p>
-              <h2>보컬 호스트 패널</h2>
+              <h2>방장 제어 패널</h2>
               <p>트랙을 미리 로드하고, 방 안에서도 곡 변경과 재시작을 할 수 있습니다.</p>
               <div className="jam-switcher" style={{ marginTop: "16px", marginBottom: "16px" }}>
                 <button
@@ -180,7 +180,7 @@ export default function JamPage({ onLeave, session }) {
               <button className="jam-secondary-button" onClick={session.restartSong}>
                 재시작
               </button>
-              {session.vocalMode === "live" ? (
+              {session.vocalMode === "live" && session.myInstrument === "vocal" ? (
                 <button className="jam-secondary-button" onClick={session.toggleLiveVocal}>
                   {session.liveVocalEnabled ? "직접 부르기 종료" : "직접 부르기 시작"}
                 </button>
@@ -205,12 +205,12 @@ export default function JamPage({ onLeave, session }) {
           </section>
         ) : null}
 
-        {session.isParticipant && (
+        {session.inRoom && (
           <section className="jam-control-card">
             <div>
-              <p className="jam-section-label">Player Control</p>
-              <h2>{session.myInstrument ? `${getInstrumentLabel(session.myInstrument)} 파트 선택됨` : "연주 악기를 선택하세요"}</h2>
-              <p>악기 선택은 파트만 고릅니다. 실제 재생은 아래 수동 버튼이나 모션 감지로 시작됩니다.</p>
+              <p className="jam-section-label">Part Control</p>
+              <h2>{session.myInstrument ? `${getInstrumentLabel(session.myInstrument)} 파트 선택됨` : "보컬 또는 악기 파트를 선택하세요"}</h2>
+              <p>방장과 참가자 모두 파트를 바꿀 수 있습니다. 실제 재생은 아래 수동 버튼이나 모션 감지로 시작됩니다.</p>
               <div className="jam-sensitivity">
                 <label htmlFor="motion-threshold">모션 민감도</label>
                 <input
@@ -221,11 +221,12 @@ export default function JamPage({ onLeave, session }) {
                   step="1"
                   value={session.motionThreshold}
                   onChange={(e) => session.setMotionThreshold(Number(e.target.value))}
+                  disabled={!session.canUseMotion}
                 />
                 <span>{session.motionThreshold}</span>
               </div>
               <div className="jam-switcher">
-                {session.availableInstruments.map((instrument) => {
+                {visibleInstruments.map((instrument) => {
                   const isCurrent = session.myInstrument === instrument;
                   const isBlocked = session.activeInstruments[instrument] && !isCurrent;
 
@@ -247,7 +248,7 @@ export default function JamPage({ onLeave, session }) {
               <button className="jam-secondary-button" onClick={session.manualPlay} disabled={!session.myInstrument}>
                 {session.myInstrument && session.activeInstruments[session.myInstrument] ? "수동으로 멈추기" : "수동으로 재생하기"}
               </button>
-              <button className="jam-primary-button" onClick={session.enableMotion} disabled={!session.myInstrument}>
+              <button className="jam-primary-button" onClick={session.enableMotion} disabled={!session.canUseMotion}>
                 {session.motionEnabled ? "모션 감지 활성화됨" : "모션 감지 켜기"}
               </button>
             </div>
