@@ -1,4 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+
+const FUNNY_STATUS_MESSAGES = [
+  "Coldplay 기타 연결중...",
+  "SPYAIR 공연 준비중...",
+  "Oasis 재결합 설득중...",
+  "Queen 드럼 세팅중...",
+  "비틀즈 횡단보도 건너는중...",
+  "실리카겔 기타 이펙터 밟는중...",
+  "데이식스 악보 챙기는중...",
+  "레드핫칠리페퍼스 베이스 튜닝중...",
+  "메탈리카 앰프 예열중...",
+  "악틱몽키즈 마이크 테스트중...",
+  "너바나 드럼 스틱 깎는중..."
+];
 
 const MainPage = ({ onGoToDevPage, session }) => {
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
@@ -8,6 +22,23 @@ const MainPage = ({ onGoToDevPage, session }) => {
   const filteredSongs = session.songs.filter((song) =>
     song.title.toLowerCase().includes(songSearch.trim().toLowerCase())
   );
+  const [funnyMessage, setFunnyMessage] = useState("");
+
+  useEffect(() => {
+    let lastIndex = Math.floor(Math.random() * FUNNY_STATUS_MESSAGES.length);
+    setFunnyMessage(FUNNY_STATUS_MESSAGES[lastIndex]);
+    
+    const interval = setInterval(() => {
+      let nextIndex;
+      do {
+        nextIndex = Math.floor(Math.random() * FUNNY_STATUS_MESSAGES.length);
+      } while (nextIndex === lastIndex); // 같은 문구가 연속으로 나오지 않도록 처리
+      lastIndex = nextIndex;
+      setFunnyMessage(FUNNY_STATUS_MESSAGES[nextIndex]);
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const openCreateModal = () => {
     setCreateModalOpen(true);
@@ -78,19 +109,17 @@ const MainPage = ({ onGoToDevPage, session }) => {
               onClick={openCreateModal}
               disabled={session.isBusy || !session.connectionReady}
             >
-              생성하기
+              Create
             </button>
             <button className="cosmos-button" onClick={openJoinModal} disabled={session.isBusy || !session.connectionReady}>
-              참여하기
+              Join
             </button>
           </div>
 
           <p className="connection-status">
-            {session.connectionReady
-              ? session.pendingRoomCode
-                ? `${session.pendingRoomCode} 방으로 자동 입장 준비 중`
-                : "서버 연결 완료"
-              : "서버 연결 준비 중"}
+            {session.pendingRoomCode
+              ? `${session.pendingRoomCode} 방으로 자동 입장 준비 중`
+              : funnyMessage}
           </p>
         </main>
 
@@ -179,22 +208,30 @@ const MainPage = ({ onGoToDevPage, session }) => {
           <div className="modal-backdrop" onClick={closeJoinModal}></div>
           <div className="modal-scroll-wrapper">
             <div className="modal-content">
-              <h2 className="modal-title">Jam Code</h2>
+              <h2 className="modal-title">Let's Jam</h2>
               
               <div className="join-options-container">
                 <div className="jam-code-input-wrapper">
                   <input 
                     type="text" 
                     className="jam-code-input" 
-                    placeholder="ex: A1B2C3" 
+                    placeholder="Jam Code를 입력하세요" 
                     maxLength={6}
                     value={jamCode}
                     onChange={handleCodeChange}
                   />
                 </div>
-                <div className="join-option-button qr-scan-button">
-                  QR 스캔으로 접속하면 이 화면을 거치지 않고 바로 방 입장을 시도합니다.
-                </div>
+                <label className="join-option-button qr-scan-button">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+                    <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                    <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+                    <path d="M7 21H5a2 2 0 0 1-2-2v-2"></path>
+                    <rect x="7" y="7" width="10" height="10" rx="1" ry="1"></rect>
+                  </svg>
+                  QR코드로 입장
+                  <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handleImageCapture} />
+                </label>
               </div>
             </div>
             <div className="modal-actions">
