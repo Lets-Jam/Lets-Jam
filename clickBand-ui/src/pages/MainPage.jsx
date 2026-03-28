@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from "react";
 
 const FUNNY_STATUS_MESSAGES = [
+  "Welcome to Let's Jam! 즉석 연주로 새로운 인연을 만들어 보세요.",
   "Coldplay 기타 연결중...",
   "SPYAIR 공연 준비중...",
   "Oasis 재결합 설득중...",
   "Queen 드럼 세팅중...",
-  "비틀즈 횡단보도 건너는중...",
-  "실리카겔 기타 이펙터 밟는중...",
-  "데이식스 악보 챙기는중...",
-  "레드핫칠리페퍼스 베이스 튜닝중...",
-  "메탈리카 앰프 예열중...",
-  "악틱몽키즈 마이크 테스트중...",
-  "너바나 드럼 스틱 깎는중..."
+  "The Beatles 횡단보도 건너는중...",
+  "Silica Gel 기타 이펙터 밟는중...",
+  "DAY6 악보 챙기는중...",
+  "Red Hot Chili Peppers 베이스 튜닝중...",
+  "Metallica 앰프 예열중...",
+  "Arctic Monkeys 마이크 테스트중...",
+  "Nirvana 드럼 스틱 깎는중..."
 ];
 
 const MainPage = ({ onGoToDevPage, session }) => {
@@ -25,8 +26,8 @@ const MainPage = ({ onGoToDevPage, session }) => {
   const [funnyMessage, setFunnyMessage] = useState("");
 
   useEffect(() => {
-    let lastIndex = Math.floor(Math.random() * FUNNY_STATUS_MESSAGES.length);
-    setFunnyMessage(FUNNY_STATUS_MESSAGES[lastIndex]);
+    let lastIndex = 0;
+    setFunnyMessage(FUNNY_STATUS_MESSAGES[0]); // 처음에는 Welcome 문구가 뜨도록 고정
     
     const interval = setInterval(() => {
       let nextIndex;
@@ -43,6 +44,7 @@ const MainPage = ({ onGoToDevPage, session }) => {
   const openCreateModal = () => {
     setCreateModalOpen(true);
     setSongSearch("");
+    session.setSelectedSongId("");
   };
   const closeCreateModal = () => setCreateModalOpen(false);
 
@@ -97,11 +99,6 @@ const MainPage = ({ onGoToDevPage, session }) => {
         </header>
 
         <main className="main-content">
-          <div className="main-center-content">
-            <p className="welcome-text">
-              Welcome to Let's Jam!<br className="mobile-break" /> 즉석 연주로 새로운 인연을 만들어 보세요.
-            </p>
-          </div>
 
           <div className="action-buttons">
             <button
@@ -111,16 +108,22 @@ const MainPage = ({ onGoToDevPage, session }) => {
             >
               Create
             </button>
-            <button className="cosmos-button" onClick={openJoinModal} disabled={session.isBusy || !session.connectionReady}>
+            <button
+              className="cosmos-button"
+              onClick={openJoinModal}
+              disabled={session.isBusy || !session.connectionReady}
+            >
               Join
             </button>
           </div>
 
-          <p className="connection-status">
-            {session.pendingRoomCode
-              ? `${session.pendingRoomCode} 방으로 자동 입장 준비 중`
-              : funnyMessage}
-          </p>
+          <div className="connection-status">
+            <p key={session.pendingRoomCode ? "pending" : funnyMessage} className="connection-status-text">
+              {session.pendingRoomCode
+                ? `${session.pendingRoomCode} 방으로 자동 입장 준비 중`
+                : funnyMessage}
+            </p>
+          </div>
         </main>
 
         <footer className="main-footer">
@@ -139,7 +142,7 @@ const MainPage = ({ onGoToDevPage, session }) => {
 
       {isCreateModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" onClick={closeCreateModal}></div>
+          <div className="modal-backdrop"></div>
           <div className="modal-scroll-wrapper">
             <div className="modal-content song-modal-content">
               <h2 className="modal-title">Song Select</h2>
@@ -160,14 +163,19 @@ const MainPage = ({ onGoToDevPage, session }) => {
 
                 {!session.songsLoading && !session.songsError ? (
                   <>
-                    <div className="song-search-wrap">
+                    <div className="song-search-wrap" style={{ position: "relative" }}>
                       <input
                         type="text"
                         className="song-search-input"
                         placeholder="노래 검색"
                         value={songSearch}
                         onChange={(e) => setSongSearch(e.target.value)}
+                        style={{ paddingRight: "40px" }}
                       />
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", right: "16px", top: "50%", transform: "translateY(-50%)", color: "rgba(255, 255, 255, 0.5)", pointerEvents: "none" }}>
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                      </svg>
                     </div>
                     <div className="song-selector song-selector-scroll">
                     {filteredSongs.map((song) => (
@@ -175,7 +183,7 @@ const MainPage = ({ onGoToDevPage, session }) => {
                         key={song.id}
                         type="button"
                         className={`song-card ${session.selectedSongId === song.id ? "selected" : ""}`}
-                        onClick={() => session.setSelectedSongId(song.id)}
+                        onClick={() => session.setSelectedSongId(session.selectedSongId === song.id ? "" : song.id)}
                       >
                         <span className="song-card-label">Song</span>
                         <strong>{song.title}</strong>
@@ -196,7 +204,7 @@ const MainPage = ({ onGoToDevPage, session }) => {
                 onClick={handleCreateSubmit}
                 disabled={session.isBusy || session.songsLoading || !session.selectedSongId}
               >
-                {session.isBusy ? "생성 중" : "이 곡으로 방 만들기"}
+                {session.isBusy ? "생성 중" : "Create"}
               </button>
             </div>
           </div>
@@ -205,7 +213,7 @@ const MainPage = ({ onGoToDevPage, session }) => {
 
       {isJoinModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-backdrop" onClick={closeJoinModal}></div>
+          <div className="modal-backdrop"></div>
           <div className="modal-scroll-wrapper">
             <div className="modal-content">
               <h2 className="modal-title">Let's Jam</h2>
