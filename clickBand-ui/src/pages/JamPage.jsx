@@ -59,6 +59,7 @@ function ChangeIcon() {
 export default function JamPage({ onLeave, session }) {
   const [copied, setCopied] = useState(false);
   const [songPickerOpen, setSongPickerOpen] = useState(false);
+  const [stagedSongId, setStagedSongId] = useState("");
   const lyrics = useMemo(() => getTimedLyrics(session.selectedSongId), [session.selectedSongId]);
   const activeLyricIndex = useMemo(
     () => getActiveLyricIndex(lyrics, session.playback.current),
@@ -120,7 +121,12 @@ export default function JamPage({ onLeave, session }) {
               <button
                 type="button"
                 className="jam-song-picker-trigger"
-                onClick={() => session.isHost && setSongPickerOpen((prev) => !prev)}
+                onClick={() => {
+                  if (session.isHost) {
+                    setStagedSongId(session.selectedSongId);
+                    setSongPickerOpen(true);
+                  }
+                }}
                 disabled={!session.isHost}
               >
                 <div className="jam-song-picker-title-row">
@@ -134,44 +140,6 @@ export default function JamPage({ onLeave, session }) {
               </button>
               <p>{songMeta.artist}</p>
             </div>
-
-            {session.isHost && songPickerOpen ? (
-              <div className="jam-song-picker-overlay" onClick={() => setSongPickerOpen(false)}>
-                <div className="jam-song-picker" onClick={(e) => e.stopPropagation()}>
-                  <div className="jam-song-picker-head">
-                    <span>Change Track</span>
-                    <button type="button" className="jam-song-picker-close" onClick={() => setSongPickerOpen(false)}>
-                      닫기
-                    </button>
-                  </div>
-                <div className="song-search-wrap host-song-search">
-                  <input
-                    type="text"
-                    className="song-search-input"
-                    placeholder="노래 검색"
-                    value={session.hostSongSearch}
-                    onChange={(e) => session.setHostSongSearch(e.target.value)}
-                  />
-                </div>
-                <div className="song-selector song-selector-scroll host-song-list jam-song-picker-list">
-                  {filteredHostSongs.map((song) => (
-                    <button
-                      key={song.id}
-                      type="button"
-                      className={`song-card ${session.selectedSongId === song.id ? "selected" : ""}`}
-                      onClick={() => {
-                        session.changeSong(song.id);
-                        setSongPickerOpen(false);
-                      }}
-                    >
-                      <span className="song-card-label">Song</span>
-                      <strong>{getSongMeta(song.id).title}</strong>
-                    </button>
-                  ))}
-                </div>
-                </div>
-              </div>
-            ) : null}
 
             <div className="jam-mini-pills">
               {visibleInstruments.map((instrument) => {
@@ -286,6 +254,65 @@ export default function JamPage({ onLeave, session }) {
           </div>
         </section>
       </div>
+
+      {session.isHost && songPickerOpen && (
+        <div className="modal-overlay">
+          <div className="modal-backdrop"></div>
+          <div className="modal-scroll-wrapper">
+            <div className="modal-content song-modal-content">
+              <h2 className="modal-title">Change Track</h2>
+
+              <div className="join-options-container">
+                <div className="song-search-wrap" style={{ position: "relative" }}>
+                  <input
+                    type="text"
+                    className="song-search-input"
+                    placeholder="노래 검색"
+                    value={session.hostSongSearch}
+                    onChange={(e) => session.setHostSongSearch(e.target.value)}
+                    style={{ paddingRight: "40px" }}
+                  />
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", right: "16px", top: "50%", transform: "translateY(-50%)", color: "rgba(255, 255, 255, 0.5)", pointerEvents: "none" }}>
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                </div>
+                <div className="song-selector song-selector-scroll">
+                  {filteredHostSongs.map((song) => (
+                    <button
+                      key={song.id}
+                      type="button"
+                      className={`song-card ${stagedSongId === song.id ? "selected" : ""}`}
+                      onClick={() => setStagedSongId(stagedSongId === song.id ? "" : song.id)}
+                    >
+                      <span className="song-card-label">Song</span>
+                      <strong>{getSongMeta(song.id).title}</strong>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setSongPickerOpen(false)} className="modal-close-button">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+              <button
+                type="button"
+                className={`modal-submit-button ${stagedSongId && stagedSongId !== session.selectedSongId ? "show" : ""}`}
+                onClick={() => {
+                  if (stagedSongId && stagedSongId !== session.selectedSongId) {
+                    session.changeSong(stagedSongId);
+                    setSongPickerOpen(false);
+                  }
+                }}
+                disabled={!stagedSongId || stagedSongId === session.selectedSongId}
+              >
+                Change
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

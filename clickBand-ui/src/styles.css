@@ -796,9 +796,30 @@ body {
   transition: background 220ms ease-out;
 }
 
+.jam-room-page::before {
+  content: "";
+  position: absolute;
+  inset: -8%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: calc(0.08 + var(--jam-pulse) * 0.34);
+  background:
+    radial-gradient(circle at 18% 24%, rgba(146, 238, 255, 0.24) 0 1.5px, transparent 3px),
+    radial-gradient(circle at 76% 20%, rgba(146, 238, 255, 0.22) 0 1px, transparent 2.6px),
+    radial-gradient(circle at 62% 36%, rgba(255, 255, 255, 0.2) 0 1.2px, transparent 2.8px),
+    radial-gradient(circle at 28% 72%, rgba(124, 218, 255, 0.2) 0 1.4px, transparent 3px),
+    radial-gradient(circle at 84% 68%, rgba(180, 243, 255, 0.22) 0 1.1px, transparent 2.7px),
+    radial-gradient(circle at 48% 82%, rgba(255, 255, 255, 0.16) 0 1px, transparent 2.6px);
+  filter: blur(calc(0.4px + var(--jam-pulse) * 0.8px));
+  transform: scale(1.04);
+  animation: jam-background-shimmer 5.8s ease-in-out infinite;
+  transition: opacity 220ms ease-out, filter 220ms ease-out;
+}
+
 .jam-crowd-accents {
   position: absolute;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
   overflow: hidden;
 }
@@ -873,6 +894,21 @@ body {
 .jam-back-button svg {
   width: 22px;
   height: 22px;
+}
+
+@keyframes jam-background-shimmer {
+  0%,
+  100% {
+    transform: scale(1.03) translate3d(0, 0, 0);
+  }
+
+  35% {
+    transform: scale(1.045) translate3d(10px, -8px, 0);
+  }
+
+  70% {
+    transform: scale(1.035) translate3d(-8px, 10px, 0);
+  }
 }
 
 .jam-panel {
